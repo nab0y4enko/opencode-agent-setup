@@ -49,5 +49,14 @@ if 'result' in locals():
   record=json.loads(subprocess.check_output(['opencode','api','session.get','--param','sessionID='+sid],text=True))['data'] if sid else {}
   report['dispatches'].append({'agent':inputs.get('agent'),'background':inputs.get('background'),'sessionID':sid,'model':record.get('model')})
   if inputs.get('agent')=='cloud-reviewer':report['review']=state.get('output','')
+# Token/model/agent usage from OpenCode's own session records, for the root session this run created.
+usage=subprocess.run(['node',str(ROOT/'bin/setup.js'),'usage','--directory',str(job),'--json'],cwd=ROOT,capture_output=True,text=True)
+if usage.returncode==0:
+ report['usage']=json.loads(usage.stdout)
+ (ROOT/'artifacts/stage-usage.json').write_text(usage.stdout)
+ rendered=subprocess.run(['node',str(ROOT/'bin/setup.js'),'usage','--session',report['usage']['root']['id']],cwd=ROOT,capture_output=True,text=True)
+ (ROOT/'artifacts/stage-usage.txt').write_text(rendered.stdout);print(rendered.stdout)
+else:
+ report['usage_error']=usage.stderr[-500:]
 evidence(report)
 raise SystemExit(subprocess.run(['python3',str(ROOT/'scripts/verify-stage-result.py'),str(ROOT/'artifacts/stage-commit-result.json')]).returncode)

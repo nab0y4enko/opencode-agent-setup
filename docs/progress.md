@@ -19,3 +19,11 @@ Stage 2 review corrections: serialize shared-index writers or use separate workt
 Stage 2 tests: 32/32 full automated/native/local checks, 3/3 PTY flows; real mixed Sol/Qwen pipeline produced two separate stage commits, 4/4 independent tests and cloud PASS; external verifier checked actual model routing/commit scopes. Updated negative test returned NEEDS_CONTEXT with HEAD/source/index unchanged. No production apply or port changes.
 
 Canonical working repository: /Users/oleksii.naboichenko/Projects/opencode-agent-setup. Imported the original three commits into its native-patcher branch while preserving the preconfigured origin. Relinked the installed command to this checkout; npm ci/audit clean, 32/32 automated/native/local checks and 3/3 PTY flows passed from the new location. No push, production apply or port change.
+
+## Revision: token measurement
+
+Added the read-only `usage` command (session tree, per-class/agent/model token totals, dispatches, escalations, findings, grade, comparison) built on OpenCode's session database; wired it into the stage smoke test and verifier; added a Build-only baseline script. 43/43 automated tests pass, 3 live tests skipped. Live mixed-versus-baseline comparison is blocked here: OpenCode and oMLX are not installed on this machine at the time of this revision. Nothing committed or applied to production configuration.
+
+## Revision: live usage plugin
+
+Added `plugin/agent-usage/` (TUI page `/usage` with agents -> models -> instances and live tokens, sidebar block, completion toast; server half writes the end-of-session report) and `opencode-agent-setup plugin install|status|uninstall`. Pure analysis split into `src/usage-analysis.js`. 48/48 automated tests pass; runtime behaviour inside OpenCode is unverified on this machine (OpenCode not installed).

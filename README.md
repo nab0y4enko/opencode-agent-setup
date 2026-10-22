@@ -77,6 +77,42 @@ python3 scripts/staged-conflict-smoke.py /absolute/path/to/the/stage-smoke-repo
 
 See the revised section of `docs/test-report.md` for mixed-model commits, independent validation and the staged-user-work negative test. Prompt instructions improve discipline but are not hard runtime enforcement; commits provide audit/rollback checkpoints, not proof of correctness.
 
+## Usage report: tokens, models, agents
+
+```sh
+opencode-agent-setup usage                      # last root session started in the current directory
+opencode-agent-setup usage --list               # recent root sessions here, with IDs
+opencode-agent-setup usage --session ID         # a specific session and all its child sessions
+opencode-agent-setup usage --session A --compare B
+opencode-agent-setup usage --json --pricing pricing.json
+```
+
+The report reads OpenCode's own session database (`~/.local/share/opencode/opencode.db`) read-only. It needs no running service, makes no model requests and writes nothing. For the root session and every descendant it shows agent, model, provider class (local or cloud), turns, input/output/reasoning/cache tokens, a weighted total, estimated cost when known, and wall-clock span; then totals by class, agent and model; the subagent dispatches with foreground/background mode; escalations from General to Build; a graded verdict; and findings with concrete suggestions.
+
+Weighted tokens count input, output, reasoning and cache writes in full and cache reads at ten percent, which approximates how providers discount cached input. It is a comparison metric, not a bill. Cost is shown only when OpenCode recorded one or when `--pricing FILE` supplies per-million rates such as `{"openai/gpt-6.1-sol":{"input":2,"output":8,"cacheRead":0.2}}`; otherwise the report says unpriced.
+
+Findings are heuristics: worker roles that ran on a cloud model (with the token volume that would have stayed local), background dispatches, coordinator overhead exceeding worker spend, General-to-Build escalations paid twice, nested delegation, reasoning-heavy coordinator turns, compaction on a cloud model, workers at their step budget, errored turns and unpriced models. The grade starts from the cloud share of weighted tokens (A below 40%, B below 60%, C below 80%, D otherwise) and is demoted by high-severity findings. Tool parts repeated in later turns are deduplicated so each dispatch is counted once.
+
+Run `usage` after a session ends, in the project directory. Comparing the same task run through Orchestrator plus local workers and through Build alone (`scripts/build-only-baseline.py` after `scripts/stage-commit-smoke.py`) is the only way to turn the token-saving goal into a measured number.
+
+## Live usage panel in the OpenCode TUI (plugin)
+
+```sh
+opencode-agent-setup plugin install            # links plugin/agent-usage into ~/.config/opencode/plugins/
+opencode-agent-setup plugin install --project  # or into ./.opencode/plugins/ for one project
+opencode-agent-setup plugin status
+opencode-agent-setup plugin uninstall
+```
+
+Restart OpenCode after installing. The plugin has two halves, both read-only and neither makes a model request:
+
+- **TUI half** (`plugin/agent-usage/tui.tsx`): `/usage` (also in the command palette) opens a live page for the current root session: grade and cloud/local split at the top, then every agent with its model(s) and the session instances under each, with turns, input/output/reasoning/cache tokens, a running marker, and errors; then the top findings. It updates as sessions run. A compact block is appended to the session sidebar. When a root session finishes, a toast shows the grade and cloud share. Keys on the page: `esc` back, `r` resync, `n` newest root session.
+- **Server half** (`plugin/agent-usage/server.js`): on session completion it writes the full text and JSON report for the root session to `~/.local/state/opencode-agent-setup/usage/<session>.txt|.json` and `latest.txt`, and logs a one-line summary. Child sessions are folded into their root's report.
+
+The plugin is a symlink to this checkout, so it imports the same `src/usage-analysis.js` the CLI uses; keep the directory in place. OpenCode 2.1.2 runs plugins under Bun, so the server half uses `bun:sqlite` through the loader's driver hook. The orchestrator itself is not involved: it cannot run shell, it cannot see its own final turn's tokens before it stops, and reading a report would spend cloud tokens.
+
+**Verification status:** the aggregation, report writer, driver hook and install command are unit-tested in Node (`npm test`), and `tui.tsx` compiles with esbuild. The TUI rendering, the toast, the event subscription in the server half and plugin discovery were **not exercised against a running OpenCode**, because OpenCode is not installed on this machine at the time of writing. Treat the hook wiring as unverified until `opencode-agent-setup plugin install` has been tried with OpenCode 2.1.2 present.
+
 ## Install from this repository
 
 ```sh

@@ -63,3 +63,27 @@ Retest with the clarified General contract: **passed**. Qwen returned NEEDS_CONT
 Artifacts: `artifacts/revision-tests.txt`, `artifacts/revision-terminal.json`, `artifacts/stage-commit-result.json`, `artifacts/stage-verification.json`, `artifacts/staged-conflict-result.json`. Earlier OpenAI-authentication limitations above describe the first installation test and are superseded by this successful authenticated mixed-model test.
 
 No production agent configuration was applied, no port setting changed, and no commits were pushed. The previous final prompt preview is superseded by the revised review artifact.
+
+## Token measurement (2026-10-22, later revision)
+
+`src/usage.js` adds the `usage` command. It reads `session_v2` and `session_message` from OpenCode's SQLite database through Node's built-in `node:sqlite` in read-only mode. Per-turn token counts (input, output, reasoning, cache read/write), agent, model, cost, finish state, compaction markers and subagent dispatch records (child session ID, agent, background flag) all come from OpenCode's stored assistant messages; per-session totals matched the summed turns on real data within the rounding OpenCode itself applies.
+
+Automated: `npm test` now runs **43 passed, 3 skipped** (the skipped tests are the live native/local checks that need `RUN_NATIVE_TESTS`/`RUN_LOCAL_TESTS`). The 14 new tests cover weighting, class/agent/model totals, grade movement, each finding, recorded-versus-priced cost, dispatch deduplication, the SQLite loader against a fixture database with the production schema, credential-free output, and the CLI (`--session`, `--directory`, `--list`, `--json`, `--compare`, missing-session failure). The stage verifier now also fails when the usage report is missing, when General tokens are not local, when all weighted tokens are cloud, or when any dispatch ran in the background.
+
+Real-data check: the report was run read-only against this machine's existing database (169 sessions). A 11 October Build session that dispatched Explore and General children on OpenAI rendered correctly after one fix: OpenCode repeats a background dispatch's tool part in later turns, which first produced 20 dispatch rows for 4 children; records are now deduplicated by child session ID. That session grades D (cloud share 100%, workers on a cloud model, all dispatches background), which is the shape this setup is designed to change.
+
+### Blocked on this machine
+
+The live mixed-model run and the Build-only baseline (`scripts/stage-commit-smoke.py`, then `scripts/build-only-baseline.py`) were **not run** in this revision. At verification time `brew info opencode` reported the formula as not installed, `~/.omlx/settings.json` was absent, nothing answered on port 8000, and the database held no session newer than 11 October; the session IDs quoted earlier in this report are not present in it. The smoke-script integration and the baseline script are therefore syntax-checked and unit-tested at the verifier level only. Until both scripts run on a machine with OpenCode 2.1.2, OpenAI authentication and the local oMLX endpoint, no token-saving number is claimed.
+
+## Live usage plugin (2026-10-22, later revision)
+
+`plugin/agent-usage/` adds an OpenCode 2.1.2 plugin directory with a server entry (`server.js`, Promise API) and a TUI entry (`tui.tsx`). Both import the pure `src/usage-analysis.js`, which was split out of `src/usage.js` so no Node-only module is loaded under Bun; the SQLite loader takes an injected driver for `bun:sqlite`.
+
+API facts were read from the v2.1.2 source tree, not from the published docs, which still describe the older `event`-hook style: a plugin module exports a default definition with an `id` and a `setup(context)` function; local plugins are discovered as files or directories under `plugin/` or `plugins/` in each config root, with `server`/`index` and `tui` entrypoints resolved per directory; session completion is signalled by `session.execution.succeeded|failed|interrupted` events carrying `sessionID`; the TUI context exposes `data.session.list/get/root/family/status`, `data.session.message.list/sync`, `data.on(eventType)`, `ui.router.register`, `ui.slot({append:"sidebar.content"})`, `ui.toast.show({title,message,variant,duration,sessionID})` and `keymap.layer` with slash and palette commands.
+
+Automated: `npm test` now runs **48 passed, 3 skipped**. New tests cover SDK-shaped tree building (Effect DateTime timestamps, subagent dispatch records, prompt text excluded), the agent/model/instance hierarchy, the summary line, the report writer (root only, text/json/latest files, no secrets), the injected-driver path, and `plugin install|status|uninstall` for global and project scopes including refusal to replace or remove a directory the tool did not create. `server.js` parses under Node; `tui.tsx` transforms and bundles its relative imports with esbuild.
+
+### Not verified
+
+OpenCode is not installed on this machine, so none of the following ran: plugin discovery of the symlinked directory, loading `tui.tsx` through OpenCode's runtime JSX support, the `/usage` page and sidebar rendering, the completion toast, `ctx.event.subscribe` in the server half, and `bun:sqlite` reading the live database while OpenCode holds it open. The first run should check the OpenCode log for `loading plugin` lines naming `agent-usage`, then open `/usage` during a delegated session.

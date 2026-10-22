@@ -21,4 +21,13 @@ if len(dispatches)==3:
   require(d.get('model',{}).get('providerID')=='openai' and d.get('model',{}).get('id')=='gpt-6.1-sol' and d.get('model',{}).get('variant')=='high',d.get('agent','agent')+' did not use OpenAI Sol high')
 review_text=re.sub(r'<[^>]+>','',r.get('review','')).replace('**','').replace('`','')
 require(bool(re.search(r'^\s*(?:VERDICT\s*[:\-]?\s*)?PASS\b',review_text,re.I|re.M)),'Independent reviewer did not give a PASS verdict')
+usage=r.get('usage')
+require(bool(usage),'Usage report missing; token measurement did not run')
+if usage:
+ by_agent={a['agent']:a for a in usage.get('byAgent',[])}
+ require(by_agent.get('general',{}).get('class')=='local','Usage report shows General tokens were not local')
+ for agent in ['build','cloud-reviewer']:require(by_agent.get(agent,{}).get('class')=='cloud',f'Usage report shows {agent} tokens were not cloud')
+ require(usage.get('totals',{}).get('local',{}).get('weighted',0)>0,'No local tokens recorded')
+ require(usage.get('shares',{}).get('cloudWeighted',1)<1,'All weighted tokens were cloud')
+ require(not any(d.get('background') for d in usage.get('dispatches',[])),'Usage report shows a background dispatch')
 print(json.dumps({'passed':not errors,'failures':errors},indent=2));sys.exit(1 if errors else 0)
