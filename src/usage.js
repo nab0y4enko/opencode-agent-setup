@@ -41,7 +41,7 @@ export function findRoot(db,{directory}={}){return listRoots(db,{directory,limit
 export function getSession(db,id){const row=db.raw.prepare(`select ${sessionColumns} from ${db.tables.session} where id = ?`).get(id);return row?rowToSession(row):null;}
 function parseMessage(sessionID,row){
  let d;try{d=JSON.parse(row.data);}catch{return null;}
- return normalizeMessage(sessionID,d,{id:row.id,created:row.time_created,completed:row.time_updated});
+ return normalizeMessage(sessionID,d,{id:row.id,created:row.time_created,completed:row.time_updated,type:row.type});
 }
 
 export function loadTree(db,rootId){
@@ -51,10 +51,10 @@ export function loadTree(db,rootId){
  const sessions=[];const queue=[rowToSession(rootRow)];
  while(queue.length){const s=queue.shift();sessions.push(s);queue.push(...children.all(s.id).map(rowToSession));}
  const timeColumn=db.tables.message==='session_message'?'seq':'time_created';
- const typeFilter=db.tables.message==='session_message'?"and type = 'assistant'":'';
- const messagesFor=db.raw.prepare(`select id, data, time_created, time_updated from ${db.tables.message} where session_id = ? ${typeFilter} order by ${timeColumn}`);
+ const typeFilter=db.tables.message==='session_message'?"and type in ('assistant','compaction')":'';
+ const messagesFor=db.raw.prepare(`select id, data, time_created, time_updated${db.tables.message==='session_message'?', type':''} from ${db.tables.message} where session_id = ? ${typeFilter} order by ${timeColumn}`);
  const messages=[];
- for(const s of sessions)for(const row of messagesFor.all(s.id)){const m=parseMessage(s.id,row);if(m&&(m.agent||m.tokens.input||m.tokens.output))messages.push(m);}
+ for(const s of sessions)for(const row of messagesFor.all(s.id)){const m=parseMessage(s.id,row);if(m)messages.push(m);}
  return {root:sessions[0],sessions,messages};
 }
 

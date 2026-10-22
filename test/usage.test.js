@@ -16,7 +16,7 @@ function message(sessionID,agent,model,tokens,extra={}){
   tokens:{input:0,output:0,reasoning:0,cacheRead:0,cacheWrite:0,...tokens},...extra};
 }
 function session(id,agent,model,parentID=null,extra={}){return {id,parentID,agent,model,directory:'/work',title:`${agent} session`,created:1000,updated:900000,compacting:null,...extra};}
-/** Coordinator on OpenAI dispatching a local General worker, then a cloud Build escalation. */
+/** Coordinator on OpenAI dispatching a local General worker, then a cloud Build handoff. */
 function mixedTree(){
  const sessions=[session('root','orchestrator',{...cloud,variant:'medium'}),session('w1','general',local,'root'),session('b1','build',cloud,'root')];
  const messages=[
@@ -52,42 +52,40 @@ test('analysis splits totals by provider class, agent and model',()=>{
 
 test('a root whose children came from another dispatch tool still counts as delegation',()=>{
  const tree=mixedTree();for(const m of tree.messages)m.dispatches=[];
- const report=analyze(tree);assert.equal(report.dispatches.length,0);assert.match(report.grade.reasons[0],/cloud share/);
+ const report=analyze(tree);assert.equal(report.dispatches.length,0);assert.match(report.routing.reasons.join(' '),/delegation observed/);
 });
 
-test('cloud share and grade reflect how much of the work stayed local',()=>{
- const good=analyze(mixedTree());
+test('cloud share describes token distribution without grading task outcomes',()=>{
+ const mixed=analyze(mixedTree());
  const tree=mixedTree();for(const m of tree.messages)if(m.sessionID==='w1')m.model=cloud;tree.sessions[1].model=cloud;
- const bad=analyze(tree);
- assert.ok(bad.shares.cloudWeighted>good.shares.cloudWeighted);
- assert.ok(['A','B','C','D'].includes(good.grade.letter));
- assert.ok(bad.grade.letter>good.grade.letter,`${bad.grade.letter} should be worse than ${good.grade.letter}`);
- assert.match(bad.grade.reasons.join(' '),/cloud/i);
+ const allCloud=analyze(tree);
+ assert.ok(allCloud.shares.cloudWeighted>mixed.shares.cloudWeighted);
+ assert.equal(mixed.routing.status,'mixed');assert.equal(allCloud.routing.status,'cloud-only');
 });
 
-test('workers that ran on cloud models are the first routing suggestion with a token estimate',()=>{
+test('workers that ran on cloud models are the first routing suggestion with observed token volume',()=>{
  const tree=mixedTree();for(const m of tree.messages)if(m.sessionID==='w1')m.model=cloud;tree.sessions[1].model=cloud;
  const finding=analyze(tree).findings.find(f=>f.id==='cloud-worker-routing');
  assert.ok(finding);assert.equal(finding.severity,'high');assert.match(finding.detail,/general/);
- assert.equal(finding.savingWeighted,weighted({input:50000,output:7000,reasoning:0,cacheRead:210000,cacheWrite:0}));
+ assert.equal(finding.observedWeighted,weighted({input:50000,output:7000,reasoning:0,cacheRead:210000,cacheWrite:0}));
  assert.equal(analyze(mixedTree()).findings.some(f=>f.id==='cloud-worker-routing'),false);
 });
 
-test('coordination overhead is flagged when the coordinator spends more than the workers',()=>{
+test('coordinator token share is described without inferring wasted work',()=>{
  const tree=mixedTree();for(const m of tree.messages)if(m.sessionID==='root')m.tokens.input*=40;
- const finding=analyze(tree).findings.find(f=>f.id==='coordination-overhead');
- assert.ok(finding);assert.match(finding.suggestion,/Build directly|smaller/i);
- assert.equal(analyze(mixedTree()).findings.some(f=>f.id==='coordination-overhead'),false);
+ const finding=analyze(tree).findings.find(f=>f.id==='coordinator-token-share');
+ assert.ok(finding);assert.match(finding.suggestion,/outcome|context/i);
+ assert.equal(analyze(mixedTree()).findings.some(f=>f.id==='coordinator-token-share'),false);
 });
 
-test('escalations, background dispatches and nested delegation are reported',()=>{
+test('possible handoffs, background dispatches and nested delegation are reported',()=>{
  const tree=mixedTree();
  tree.messages[0].dispatches[0].background=true;
  tree.sessions.push(session('w1child','explore',local,'w1'));tree.messages.push(message('w1child','explore',local,{input:100,output:10}));
  tree.messages[1].dispatches=[{agent:'explore',background:false,sessionID:'w1child'}];
  const report=analyze(tree);
- assert.equal(report.escalations.length,1);assert.equal(report.escalations[0].from,'w1');assert.equal(report.escalations[0].to,'b1');
- assert.ok(report.findings.some(f=>f.id==='escalation'));
+ assert.equal(report.possibleHandoffs.length,1);assert.equal(report.possibleHandoffs[0].from,'w1');assert.equal(report.possibleHandoffs[0].to,'b1');
+ assert.ok(report.findings.some(f=>f.id==='possible-handoff'));
  const background=report.findings.find(f=>f.id==='background-dispatch');assert.ok(background);assert.equal(background.severity,'high');
  const nested=report.findings.find(f=>f.id==='nested-delegation');assert.ok(nested);assert.match(nested.detail,/general/);
 });
@@ -112,10 +110,10 @@ test('cost uses recorded message cost, then a pricing table, and flags unpriced 
  const unpriced=analyze(mixedTree());assert.ok(unpriced.findings.some(f=>f.id==='unpriced-models'));assert.equal(unpriced.totals.cloud.cost,null);
 });
 
-test('rendered report lists sessions, totals, findings and grade without secrets',()=>{
+test('rendered report lists sessions, totals, findings and routing without secrets',()=>{
  const text=render(analyze(mixedTree()));
  assert.match(text,/orchestrator/);assert.match(text,/omlx\/qwen-3.8-nf-splash/);assert.match(text,/Cloud/);assert.match(text,/Local/);
- assert.match(text,/Grade [A-D]/);assert.match(text,/Findings/);assert.match(text,/weighted/i);
+ assert.match(text,/Routing:/);assert.match(text,/Findings/);assert.match(text,/weighted/i);
 });
 
 function fixtureDatabase(){
@@ -133,7 +131,7 @@ function fixtureDatabase(){
  m.run('a1','root','assistant',1,1100,1200,JSON.stringify({agent:'orchestrator',model:{id:'gpt-6.1-sol',providerID:'openai',variant:'medium'},time:{created:1100,completed:1200},finish:'tool-calls',cost:0,tokens:{input:500,output:60,reasoning:20,cache:{read:3000,write:0}},content:[{type:'tool',name:'subagent',state:{status:'completed',input:{agent:'general',background:false,prompt:'secret brief with apiKey=SENTINEL'},metadata:{sessionID:'child'}}}]}));
  m.run('a2','child','assistant',1,2100,2200,JSON.stringify({agent:'general',model:local,time:{created:2100,completed:2200},finish:'stop',cost:0,tokens:{input:7000,output:900,reasoning:0,cache:{read:1000,write:0}},content:[{type:'tool',name:'subagent',state:{status:'completed',input:{agent:'explore',background:false},metadata:{sessionID:'grandchild'}}}]}));
  m.run('a3','grandchild','assistant',1,2600,2700,JSON.stringify({agent:'explore',model:local,time:{created:2600,completed:2700},finish:'stop',cost:0,tokens:{input:400,output:30,reasoning:0,cache:{read:0,write:0}}}));
- m.run('a4','root','assistant',2,3000,3100,JSON.stringify({agent:'compaction',model:{id:'gpt-6.1-sol',providerID:'openai',variant:'medium'},time:{created:3000,completed:3100},finish:'stop',summary:true,cost:0,tokens:{input:9000,output:300,reasoning:0,cache:{read:0,write:0}}}));
+ m.run('a4','root','compaction',2,3000,3100,JSON.stringify({model:{id:'gpt-6.1-sol',providerID:'openai',variant:'medium'},time:{created:3000,completed:3100},finish:'stop',cost:0,tokens:{input:9000,output:300,reasoning:0,cache:{read:0,write:0}}}));
  m.run('i1','root','idle',3,3200,3200,JSON.stringify({time:{created:3200},outcome:'succeeded'}));
  db.close();return file;
 }
@@ -156,7 +154,7 @@ test('database loader returns the whole session tree, dispatches and compaction 
 test('usage command renders a report from an explicit database and session, and emits JSON',()=>{
  const file=fixtureDatabase();const cli=path.resolve('bin/setup.js');
  const text=spawnSync(process.execPath,[cli,'usage','--db',file,'--session','root'],{encoding:'utf8'});
- assert.equal(text.status,0,text.stderr);assert.match(text.stdout,/Grade/);assert.match(text.stdout,/compaction/i);assert.equal(text.stdout.includes('SENTINEL'),false);
+ assert.equal(text.status,0,text.stderr);assert.match(text.stdout,/Routing:/);assert.match(text.stdout,/compaction/i);assert.equal(text.stdout.includes('SENTINEL'),false);
  const json=spawnSync(process.execPath,[cli,'usage','--db',file,'--directory','/work','--json'],{encoding:'utf8'});
  assert.equal(json.status,0,json.stderr);const report=JSON.parse(json.stdout);assert.equal(report.root.id,'root');assert.ok(report.findings.length);
  const missing=spawnSync(process.execPath,[cli,'usage','--db',file,'--directory','/nowhere'],{encoding:'utf8'});
@@ -200,14 +198,14 @@ test('hierarchy nests agents, then models, then session instances, largest first
  const general=h[0];assert.equal(general.class,'local');assert.equal(general.models[0].model,'omlx/qwen-3.8-nf-splash');assert.equal(general.models[0].instances[0].id,'w1');
  assert.equal(general.models[0].instances[0].title,'general session');
  assert.equal(h.find(a=>a.agent==='orchestrator').cost,null);
- assert.match(summaryLine(report),/Grade [A-D]: cloud \d+% \/ local \d+%/);
+ assert.match(summaryLine(report),/Routing: .*cloud \d+% \/ local \d+%/);
 });
 
 import {writeSessionReport, COMPLETION_EVENTS} from '../plugin/agent-usage/report.js';
 test('session report writer handles root sessions only and writes text, json and latest files',()=>{
  const file=fixtureDatabase();const dir=fs.mkdtempSync(path.join(os.tmpdir(),'usage reports '));
  const result=writeSessionReport('root',{database:file,directory:dir});
- assert.equal(result.written,true);assert.match(result.summary,/Grade/);assert.ok(fs.existsSync(result.files.text));assert.ok(fs.existsSync(result.files.json));
+ assert.equal(result.written,true);assert.match(result.summary,/Routing:/);assert.ok(fs.existsSync(result.files.text));assert.ok(fs.existsSync(result.files.json));
  assert.equal(fs.readFileSync(result.files.latest,'utf8'),fs.readFileSync(result.files.text,'utf8'));
  assert.equal(fs.readFileSync(result.files.text,'utf8').includes('SENTINEL'),false);
  assert.deepEqual(writeSessionReport('child',{database:file,directory:dir}),{skipped:'child session'});

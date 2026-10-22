@@ -1,10 +1,12 @@
 // OpenCode 2.1.2 TUI plugin: live agents -> models -> session instances with token usage.
-// Opens with /usage (or the command palette), adds a compact block to the session sidebar, and shows a graded
+// Opens with /usage (or the command palette), adds a compact block to the session sidebar, and shows a routing
 // toast when a root session finishes. Reads only the TUI's own session/message data; no model requests.
-// UNVERIFIED against a running OpenCode TUI: see docs/test-report.md.
+// Native discovery/rendering smoke: OPENCODE_PLUGIN_TESTS=1 node --test test/plugin-runtime.test.js.
+// Natural delivery/toast smoke: OPENCODE_COMPLETION_TESTS=1 node --test test/plugin-completion.test.js (local inference).
 import {Plugin} from "@opencode/plugin/tui"
 import {createEffect, createMemo, createSignal, For, Show} from "solid-js"
 import {analyze, hierarchy, num, pct, summaryLine, treeFrom} from "../../src/usage-analysis.js"
+import {createUsageNavigation, latestRoot} from "./navigation.js"
 
 type Context = Plugin.Context
 type Report = ReturnType<typeof analyze>
@@ -37,28 +39,12 @@ function useReport(context: Context, rootID: () => string | undefined) {
   })
 }
 
-function latestRoot(context: Context) {
-  const roots = context.data.session.list().filter((s) => !s.parentID)
-  const time = (s: { time?: { updated?: unknown } }) => {
-    const u = s.time?.updated as { epochMillis?: number } | number | Date | undefined
-    return typeof u === "number" ? u : u instanceof Date ? u.getTime() : (u?.epochMillis ?? 0)
-  }
-  return roots.sort((a, b) => time(b) - time(a))[0]?.id
-}
-
-function currentRoot(context: Context) {
-  const route = context.ui.router.current()
-  if (route.type === "session") return context.data.session.root(route.sessionID)
-  return latestRoot(context)
-}
-
 const short = (model: string) => model.replace(/^[^/]+\//, "")
-const gradeVariant = (letter: string) => (letter === "A" ? "success" : letter === "B" ? "info" : letter === "C" ? "warning" : "error")
 
-function UsagePage(props: { context: Context; onClose: () => void }) {
+function UsagePage(props: { context: Context; rootID: string | undefined; onClose: () => void }) {
   const context = props.context
   const theme = context.theme
-  const [rootID, setRootID] = createSignal(currentRoot(context))
+  const [rootID, setRootID] = createSignal(props.rootID)
   const report = useReport(context, rootID)
   const tree = createMemo(() => (report() ? hierarchy(report()!) : []))
   const [refresh, setRefresh] = createSignal(0)
@@ -99,10 +85,11 @@ function UsagePage(props: { context: Context; onClose: () => void }) {
               <text fg={theme.text.muted}>{r().root.id}</text>
             </box>
             <text fg={theme.text.base}>
-              Grade {r().grade.letter}: {r().grade.label}
+              Routing: {r().routing.label}
             </text>
             <text fg={theme.text.muted}>
               cloud {num(r().totals.cloud.weighted)} ({pct(r().shares.cloudWeighted)}) · local {num(r().totals.local.weighted)} ({pct(r().shares.localWeighted)}) weighted
+              · unknown {num(r().totals.unknown.weighted)} ({pct(r().shares.unknownWeighted)})
               · {r().totals.all.turns} turns · {r().sessions.length} sessions · {r().dispatches.length} dispatches
             </text>
             <text fg={theme.text.muted}> </text>
@@ -127,7 +114,7 @@ function UsagePage(props: { context: Context; onClose: () => void }) {
                               </text>
                               <text fg={theme.text.muted}>
                                 {instance.title || instance.id} · {instance.turns} turns · in {num(instance.tokens.input)} out {num(instance.tokens.output)} reason{" "}
-                                {num(instance.tokens.reasoning)} cache {num(instance.tokens.cacheRead)}
+                                {num(instance.tokens.reasoning)} cache-rd {num(instance.tokens.cacheRead)} cache-wr {num(instance.tokens.cacheWrite)}
                                 {instance.errors ? ` · ${instance.errors} error(s)` : ""}
                               </text>
                             </box>
@@ -175,14 +162,20 @@ function SidebarUsage(props: { context: Context; sessionID: string }) {
       {(r) => (
         <box paddingLeft={1} paddingRight={1} gap={0}>
           <text fg={theme.text.base}>
-            <b>Usage</b> grade {r().grade.letter} · cloud {pct(r().shares.cloudWeighted)}
+            <b>Usage</b> {r().routing.label}
+          </text>
+          <text fg={theme.text.muted}>
+            Weighted: cloud {pct(r().shares.cloudWeighted)} · local {pct(r().shares.localWeighted)}
           </text>
           <For each={tree().slice(0, 6)}>
             {(agent) => (
-              <text fg={theme.text.muted}>
-                {agent.agent} {short(agent.models[0]?.model ?? "")} {num(agent.weighted)}
-                {agent.models[0]?.instances.some((i) => context.data.session.status(i.id) === "running") ? " ▶" : ""}
-              </text>
+              <box>
+                <text fg={theme.text.base}>
+                  {agent.agent} · {num(agent.weighted)} weighted
+                  {agent.models[0]?.instances.some((i) => context.data.session.status(i.id) === "running") ? " ▶" : ""}
+                </text>
+                <text fg={theme.text.muted}>{short(agent.models[0]?.model ?? "")}</text>
+              </box>
             )}
           </For>
           <text fg={theme.text.muted} onMouseUp={() => context.keymap.dispatch("agent-usage.open")}>
@@ -197,10 +190,10 @@ function SidebarUsage(props: { context: Context; sessionID: string }) {
 export default Plugin.define({
   id: "agent-usage",
   setup(context) {
-    const [previous, setPrevious] = createSignal({ ...context.ui.router.current() })
+    const navigation = createUsageNavigation(context)
     context.ui.router.register({
       name: "agent-usage",
-      render: () => <UsagePage context={context} onClose={() => context.ui.router.navigate(previous())} />,
+      render: ({data}) => <UsagePage context={context} rootID={navigation.initialRoot(data)} onClose={navigation.close} />,
     })
     context.ui.slot({
       append: "sidebar.content",
@@ -218,30 +211,20 @@ export default Plugin.define({
               group: "System",
               slash: { name: "usage" },
               palette: true,
-              run() {
-                const current = context.ui.router.current()
-                if (current.type === "plugin" && current.name === "agent-usage") return
-                setPrevious({ ...current })
-                context.ui.dialog.clear()
-                context.ui.router.navigate({ type: "plugin", name: "agent-usage" })
-              },
+              run: navigation.open,
             },
           ],
         }))
         return null
       },
     })
-    const shown = new Map<string, number>()
     const onDone = (event: { data?: { sessionID?: string }; properties?: { sessionID?: string } }) => {
       const sessionID = event.data?.sessionID ?? event.properties?.sessionID
       if (!sessionID || context.data.session.root(sessionID) !== sessionID) return
-      const last = shown.get(sessionID) ?? 0
-      if (Date.now() - last < 2000) return
-      shown.set(sessionID, Date.now())
       const tree = treeFrom(context.data.session.list(), (sid) => context.data.session.message.list(sid), sessionID)
       if (!tree) return
       const report = analyze(tree)
-      context.ui.toast.show({ title: "Agent usage", message: summaryLine(report) + " Open /usage for the breakdown.", variant: gradeVariant(report.grade.letter), duration: 8000, sessionID })
+      context.ui.toast.show({ title: "Agent usage", message: summaryLine(report) + " Open /usage for the breakdown.", variant: "info", duration: 8000, sessionID })
     }
     const offs = (["session.execution.succeeded", "session.execution.failed", "session.execution.interrupted"] as const).map((type) =>
       context.data.on(type as never, onDone as never),

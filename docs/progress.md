@@ -27,3 +27,35 @@ Added the read-only `usage` command (session tree, per-class/agent/model token t
 ## Revision: live usage plugin
 
 Added `plugin/agent-usage/` (TUI page `/usage` with agents -> models -> instances and live tokens, sidebar block, completion toast; server half writes the end-of-session report) and `opencode-agent-setup plugin install|status|uninstall`. Pure analysis split into `src/usage-analysis.js`. 48/48 automated tests pass; runtime behaviour inside OpenCode is unverified on this machine (OpenCode not installed).
+
+
+## Revision: deep-review fixes and independent double-check
+
+Resolved recovery races and restored-field validation; effective wildcard permissions and configuration inheritance; message-level usage attribution, compaction, errors and partial pricing; misleading efficiency grades and assumed failed escalations; plugin root selection, dry-runs and encoded checkout paths; and strict baseline acceptance/import/timeout safety. Added source-compatible handling for disabled overrides, request maps and server-expanded references. Rechecked in a fresh independent review with no concrete material findings remaining.
+
+Final combined native/local/plugin suite: 123 passed, no failures/skips. PTY flows: 3/3 passed. Private native symlink plugin test rendered the originating session and wrote reports from a synthetic completion event with zero messages. Natural completion delivery remains unverified. The initial baseline import test accidentally launched two cloud fixture runs; both were interrupted, and a subprocess tripwire plus guarded entry point now protects imports. Full details and evidence paths are in test-report.md. No production apply, staging or push.
+
+
+## Revision: natural completion delivery
+
+Verified real OpenCode lifecycle events with local Qwen in isolated private runtimes. Fixed missing standalone CLI reports by removing the delayed write; fixed stale rapid follow-up toasts by removing per-session cooldowns. Natural server success/failure/interruption now produce reports; TUI success/interruption events were observed and both rapid success toasts matched persisted totals (528 ms gap). Added opt-in live regression plus import/cleanup/screen-reader safeguards. See the latest test-report section and natural-completion artifacts for coverage and final suite results.
+
+Final native/local/synthetic/natural suite: 127/127 passed, zero skips/failures. Strengthened natural-focused suite: 4/4; independent scoped review clear. Full output: artifacts/natural-completion-tests.txt.
+
+- Ran the matched two-stage mixed/Build benchmark and independently verified both accepted outcomes against Git, test replay and native SQLite counters. Retained the first Build timeout and its usage; see `docs/baseline-comparison.md`. Added comparable execution timing, safe mixed-harness imports and a read-only comparison script with explicit failed-attempt inclusion.
+
+- Optimized mixed to local Qwen coordination plus one context-preserving local worker; removed forced cloud stage/review calls, gated paid escalation and added the local-first example. Fresh same-task verification passed on both paths: local-first 60.969s/zero cloud counters, native Build 61.639s. Fixed omitted-foreground capture and permitted read-only tool verification without repeating inference. See `docs/local-first-comparison.md`.
+
+- Corrected the overbroad local routing: Sol owns planning, coordination and final review; Qwen only executes bounded work. Cloud roles remain callable. Kept one context-preserving local assignment and review in the existing cloud session to reduce duplicated context. Withdrew the all-local recommendation and replaced its example with `examples/mixed-workers.json`.
+
+- Reverified the corrected cloud-led profile against a fresh Build baseline: mixed 122.795s / 6,493 cloud input, Build 61.802s / 12,455 cloud input. Sol performed planning/review in one cloud session; Qwen performed the implementation stages. Both independent acceptance checks passed.
+
+- Activated the user-approved balanced profile globally with transactional native validation: Orchestrator/Plan/Summary/Compaction Sol medium, Build/reviewer Sol high, local Qwen workers, explicit Standard request tier and warming off. Effective settings verified globally and in this repository; credentials remain in a private file. See `docs/balanced-profile.md`.
+
+## Saved and globally applied — 22 October 2026
+
+The balanced cloud-led profile is active globally: Sol medium plans and reviews; local Qwen performs bounded implementation and exploration; Sol high remains available for difficult implementation and independent review. OpenAI roles explicitly use Standard service tier and warming is disabled. The usage plugin is installed globally as a link to this checkout. Fresh native discovery verified every selected model/variant and the plugin link.
+
+Saved the sanitized matched benchmark receipt and actual terminal captures under `docs/benchmarks/` and `docs/images/`. Capturing the completed session added no messages or inference. Desktop screenshot access was unavailable; image provenance documents the native PTY capture and terminal rendering.
+
+Future Build baselines isolate global configuration and use a private server to preserve native instructions and permissions after profile activation. A regression test and a no-inference native API check verified the isolation. Raw runtime logs and private credentials remain outside the committed evidence.

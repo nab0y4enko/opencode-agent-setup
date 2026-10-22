@@ -1,0 +1,81 @@
+{
+  "model": "omlx/qwen-3.8-nf-splash",
+  "cliExit": 0,
+  "elapsedSeconds": 0.93,
+  "observedEvents": [
+    {
+      "type": "observer.ready"
+    },
+    {
+      "type": "session.execution.started",
+      "sessionID": "ses_e9a2f6f6dffelF6yUvJ2ZHD1QH",
+      "at": 1792709529892
+    },
+    {
+      "type": "session.execution.succeeded",
+      "sessionID": "ses_e9a2f6f6dffelF6yUvJ2ZHD1QH",
+      "at": 1792709530489
+    }
+  ],
+  "assistantRecords": 1,
+  "cliRootReportWritten": true,
+  "reportTurns": 1,
+  "reportTokens": {
+    "input": 394,
+    "output": 7,
+    "reasoning": 19,
+    "cacheRead": 0,
+    "cacheWrite": 0
+  },
+  "cliReportMatchesDatabase": true,
+  "interruptedReportWritten": true,
+  "tuiCompletions": [
+    {
+      "type": "session.execution.succeeded",
+      "sessionID": "ses_e9a2f6f6dffelF6yUvJ2ZHD1QH",
+      "at": 1792709532459
+    },
+    {
+      "type": "session.execution.succeeded",
+      "sessionID": "ses_e9a2f6f6dffelF6yUvJ2ZHD1QH",
+      "at": 1792709532990
+    },
+    {
+      "type": "session.execution.interrupted",
+      "sessionID": "ses_e9a2f6f6dffelF6yUvJ2ZHD1QH",
+      "at": 1792709533258
+    }
+  ],
+  "tuiSnapshots": [
+    {
+      "turns": 2,
+      "toastWithFinalTotals": true,
+      "weighted": 543
+    },
+    {
+      "turns": 3,
+      "toastWithFinalTotals": true,
+      "weighted": 687
+    }
+  ],
+  "rapidGapMillis": 531,
+  "tuiToastRendered": true,
+  "finalReportMatchesDatabase": true,
+  "finalTokens": {
+    "input": 529,
+    "output": 21,
+    "reasoning": 57,
+    "cacheRead": 800,
+    "cacheWrite": 0
+  },
+  "failedExit": 1,
+  "failedEvents": [
+    {
+      "type": "session.execution.failed",
+      "sessionID": "ses_e9a2f5e6bffe1e1rFbblSPT53a",
+      "at": 1792709534305
+    }
+  ],
+  "failedReportWritten": true,
+  "note": "Fresh natural-event verification before commit; small local Qwen requests only, no cloud inference."
+}

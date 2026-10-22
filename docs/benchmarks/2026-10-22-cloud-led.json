@@ -1,0 +1,347 @@
+{
+  "date": "2026-10-22",
+  "verified": true,
+  "scope": "One accepted run per approach; mixed first. Explicit failed attempts retained. Completed run timing covers CLI launch through exit; failed timing includes interruption. Inter-attempt gaps excluded. No invoice data or energy measurement.",
+  "cost_note": "Cloud billing and local operating cost unmeasured. Recorded local zero is not an energy/hardware cost measurement. Weighted units are a heuristic, not billing tokens.",
+  "comparison": {
+    "mixed_time_ratio": 1.9869098087440535,
+    "mixed_cloud_input_ratio": 0.5213167402649538,
+    "mixed_cloud_weighted_ratio": 0.37219286657859973
+  },
+  "failed_attempts": [],
+  "runs": {
+    "mixed": {
+      "root": "ses_e9a47a515ffey6eSE5MSEOftx0",
+      "model_run_seconds": 122.795,
+      "initial_file_sha256": {
+        ".gitignore": "1d2fdb7bbfd66a3c0b4d8d4e4b8553416bf866a4a95111ee9fa7a1ca2d2d93fa",
+        "fixture.py": "99cd3ddbb398277daa11eecba188d6cd93ef95428a76f70558b79d4139caa901",
+        "test_fixture.py": "9e005c7e3c719d5815eb4b7a52b31c999325f278f1aea52dfc087beb2580d9fc",
+        "unrelated.txt": "4b654bd1437066b13498661f3ca14774daf1066d072036beffaf06f0c014250e"
+      },
+      "independent_integer_cases": 637,
+      "commits": [
+        {
+          "sha": "a37a3e4b4cd166ce5cd16388e665a61549145a44",
+          "subject": "fix: clamp value to range and return it inside bounds",
+          "files": [
+            "fixture.py"
+          ]
+        },
+        {
+          "sha": "216dc56ab2f7b137b1894d3344bf3ac2d721b6f7",
+          "subject": "fix: reject inverted range in clamp with ValueError",
+          "files": [
+            "fixture.py",
+            "test_fixture.py"
+          ]
+        }
+      ],
+      "totals": {
+        "cloud": {
+          "sessions": 1,
+          "turns": 3,
+          "raw": {
+            "input": 6493,
+            "output": 756,
+            "reasoning": 0,
+            "cacheRead": 6400,
+            "cacheWrite": 0
+          },
+          "weighted": 7889,
+          "cost": null
+        },
+        "local": {
+          "sessions": 1,
+          "turns": 19,
+          "raw": {
+            "input": 19218,
+            "output": 6588,
+            "reasoning": 3273,
+            "cacheRead": 280960,
+            "cacheWrite": 0
+          },
+          "weighted": 57175,
+          "cost": 0
+        },
+        "unknown": {
+          "sessions": 0,
+          "turns": 0,
+          "raw": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "weighted": 0,
+          "cost": 0
+        },
+        "all": {
+          "sessions": 2,
+          "turns": 22,
+          "raw": {
+            "input": 25711,
+            "output": 7344,
+            "reasoning": 3273,
+            "cacheRead": 287360,
+            "cacheWrite": 0
+          },
+          "weighted": 65064,
+          "cost": null
+        }
+      },
+      "byAgent": [
+        {
+          "agent": "general",
+          "class": "local",
+          "sessions": 1,
+          "turns": 19,
+          "raw": {
+            "input": 19218,
+            "output": 6588,
+            "reasoning": 3273,
+            "cacheRead": 280960,
+            "cacheWrite": 0
+          },
+          "weighted": 57175,
+          "cost": 0
+        },
+        {
+          "agent": "orchestrator",
+          "class": "cloud",
+          "sessions": 1,
+          "turns": 3,
+          "raw": {
+            "input": 6493,
+            "output": 756,
+            "reasoning": 0,
+            "cacheRead": 6400,
+            "cacheWrite": 0
+          },
+          "weighted": 7889,
+          "cost": null
+        }
+      ],
+      "native_reconciliation": {
+        "sessions": {
+          "ses_e9a47a515ffey6eSE5MSEOftx0": {
+            "agent": "orchestrator",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "messages": 3,
+            "tokens": {
+              "input": 6493,
+              "output": 756,
+              "reasoning": 0,
+              "cacheRead": 6400,
+              "cacheWrite": 0
+            },
+            "tools": {
+              "subagent": 1,
+              "read": 6
+            },
+            "outcome": "succeeded"
+          },
+          "ses_e9a477008ffekUVJlnIcgAKLNB": {
+            "agent": "general",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx"
+            },
+            "messages": 19,
+            "tokens": {
+              "input": 19218,
+              "output": 6588,
+              "reasoning": 3273,
+              "cacheRead": 280960,
+              "cacheWrite": 0
+            },
+            "tools": {
+              "shell": 17,
+              "read": 2,
+              "write": 2,
+              "edit": 2
+            },
+            "outcome": "succeeded"
+          }
+        },
+        "raw": {
+          "input": 25711,
+          "output": 7344,
+          "reasoning": 3273,
+          "cacheRead": 287360,
+          "cacheWrite": 0
+        },
+        "recorded_cost_values": [
+          0
+        ],
+        "recorded_cost_sum": 0,
+        "actual_dollar_cost": null
+      },
+      "stage_verification": [
+        {
+          "sha": "a37a3e4b4cd166ce5cd16388e665a61549145a44",
+          "independent_test_exit": 0
+        },
+        {
+          "sha": "216dc56ab2f7b137b1894d3344bf3ac2d721b6f7",
+          "independent_test_exit": 0,
+          "regression_exit": 1
+        }
+      ]
+    },
+    "buildOnly": {
+      "root": "ses_e9a455e69ffe2Qee0LFzpoMcVx",
+      "model_run_seconds": 61.802,
+      "initial_file_sha256": {
+        ".gitignore": "1d2fdb7bbfd66a3c0b4d8d4e4b8553416bf866a4a95111ee9fa7a1ca2d2d93fa",
+        "fixture.py": "99cd3ddbb398277daa11eecba188d6cd93ef95428a76f70558b79d4139caa901",
+        "test_fixture.py": "9e005c7e3c719d5815eb4b7a52b31c999325f278f1aea52dfc087beb2580d9fc",
+        "unrelated.txt": "4b654bd1437066b13498661f3ca14774daf1066d072036beffaf06f0c014250e"
+      },
+      "independent_integer_cases": 637,
+      "commits": [
+        {
+          "sha": "fa98e6268899ddc93e1cbc9b30600d02e046538d",
+          "subject": "Fix clamp for values below, within, and above range",
+          "files": [
+            "fixture.py"
+          ]
+        },
+        {
+          "sha": "39d55220a4a6e74152240ae4b6710c9bfa64940e",
+          "subject": "Reject reversed clamp bounds with regression coverage",
+          "files": [
+            "fixture.py",
+            "test_fixture.py"
+          ]
+        }
+      ],
+      "totals": {
+        "cloud": {
+          "sessions": 1,
+          "turns": 14,
+          "raw": {
+            "input": 12455,
+            "output": 1349,
+            "reasoning": 83,
+            "cacheRead": 73088,
+            "cacheWrite": 0
+          },
+          "weighted": 21196,
+          "cost": null
+        },
+        "local": {
+          "sessions": 0,
+          "turns": 0,
+          "raw": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "weighted": 0,
+          "cost": 0
+        },
+        "unknown": {
+          "sessions": 0,
+          "turns": 0,
+          "raw": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "weighted": 0,
+          "cost": 0
+        },
+        "all": {
+          "sessions": 1,
+          "turns": 14,
+          "raw": {
+            "input": 12455,
+            "output": 1349,
+            "reasoning": 83,
+            "cacheRead": 73088,
+            "cacheWrite": 0
+          },
+          "weighted": 21196,
+          "cost": null
+        }
+      },
+      "byAgent": [
+        {
+          "agent": "build",
+          "class": "cloud",
+          "sessions": 1,
+          "turns": 14,
+          "raw": {
+            "input": 12455,
+            "output": 1349,
+            "reasoning": 83,
+            "cacheRead": 73088,
+            "cacheWrite": 0
+          },
+          "weighted": 21196,
+          "cost": null
+        }
+      ],
+      "native_reconciliation": {
+        "sessions": {
+          "ses_e9a455e69ffe2Qee0LFzpoMcVx": {
+            "agent": "build",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "high"
+            },
+            "messages": 14,
+            "tokens": {
+              "input": 12455,
+              "output": 1349,
+              "reasoning": 83,
+              "cacheRead": 73088,
+              "cacheWrite": 0
+            },
+            "tools": {
+              "shell": 10,
+              "read": 10,
+              "glob": 1,
+              "patch": 3
+            },
+            "outcome": "succeeded"
+          }
+        },
+        "raw": {
+          "input": 12455,
+          "output": 1349,
+          "reasoning": 83,
+          "cacheRead": 73088,
+          "cacheWrite": 0
+        },
+        "recorded_cost_values": [
+          0
+        ],
+        "recorded_cost_sum": 0,
+        "actual_dollar_cost": null
+      },
+      "stage_verification": [
+        {
+          "sha": "fa98e6268899ddc93e1cbc9b30600d02e046538d",
+          "independent_test_exit": 0
+        },
+        {
+          "sha": "39d55220a4a6e74152240ae4b6710c9bfa64940e",
+          "independent_test_exit": 0,
+          "regression_exit": 1
+        }
+      ]
+    }
+  }
+}

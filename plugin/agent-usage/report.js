@@ -17,6 +17,6 @@ export function writeSessionReport(sessionID,{database=defaultDatabasePath(),dri
   fs.mkdirSync(directory,{recursive:true,mode:0o700});
   const text=render(report);const files={text:path.join(directory,`${sessionID}.txt`),json:path.join(directory,`${sessionID}.json`),latest:path.join(directory,'latest.txt')};
   fs.writeFileSync(files.text,text,{mode:0o600});fs.writeFileSync(files.json,JSON.stringify(report,null,2),{mode:0o600});fs.writeFileSync(files.latest,text,{mode:0o600});
-  return {written:true,summary:summaryLine(report),grade:report.grade.letter,files};
+  return {written:true,summary:summaryLine(report),routing:report.routing,files};
  }finally{db.close();}
 }

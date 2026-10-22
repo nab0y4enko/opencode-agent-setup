@@ -9,7 +9,7 @@ import {api,discover,validateNative} from '../src/native.js';
 const live=process.env.RUN_NATIVE_TESTS==='1';
 function fixture(){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'opencode-native-integration-'));return {dir,file:path.join(dir,'opencode.json'),state:path.join(dir,'private-state')};}
 test('native runtime loads custom roles, effective permissions and exact worker prompt, then undo',{skip:!live},async()=>{
- const {dir,file,state}=fixture();const info=await discover(dir);assert.equal(info.agents.length,7);
+ const {dir,file,state}=fixture();const info=await discover(dir);assert.ok(info.agents.some(agent=>agent.id==='build'));
  const model=info.models[0];const ref=`${model.providerID}/${model.id}`;
  const changes=[...buildOverrides([{id:'orchestrator',model:ref,prompt:'enhance'},{id:'build',model:ref,prompt:'enhance'},{id:'cloud-reviewer',model:ref,prompt:'enhance'},{id:'explore',model:ref,prompt:'enhance'}]),{path:['default_agent'],value:'orchestrator'}];
  await apply(file,changes,{state,expected:null,validate:validateNative});

@@ -1,0 +1,127 @@
+{
+  "date": "2026-10-22",
+  "full_suite": {
+    "command": "npm test",
+    "tests": 138,
+    "passed": 133,
+    "failed": 0,
+    "skipped_opt_in": 5,
+    "seconds": 134.885779958
+  },
+  "native_opt_in": {
+    "command": "RUN_NATIVE_TESTS=1 RUN_LOCAL_TESTS=1 OPENCODE_PLUGIN_TESTS=1 node --test test/native.test.js test/plugin-runtime.test.js",
+    "passed": 4,
+    "failed": 0
+  },
+  "plugin_after_sidebar_fix": {
+    "passed": 1,
+    "failed": 0
+  },
+  "natural_completion": {
+    "command": "OPENCODE_COMPLETION_TESTS=1 node --test test/plugin-completion.test.js",
+    "passed": 4,
+    "failed": 0
+  },
+  "global_application": {
+    "defaultAgent": "orchestrator",
+    "warming": false,
+    "pluginInstalled": true,
+    "agents": [
+      {
+        "id": "orchestrator",
+        "model": {
+          "id": "gpt-6.1-sol",
+          "providerID": "openai",
+          "variant": "medium"
+        },
+        "serviceTier": "default"
+      },
+      {
+        "id": "build",
+        "model": {
+          "id": "gpt-6.1-sol",
+          "providerID": "openai",
+          "variant": "high"
+        },
+        "serviceTier": "default"
+      },
+      {
+        "id": "general",
+        "model": {
+          "id": "qwen-3.8-nf-splash",
+          "providerID": "omlx"
+        },
+        "serviceTier": null
+      },
+      {
+        "id": "explore",
+        "model": {
+          "id": "qwen-3.8-nf-splash",
+          "providerID": "omlx"
+        },
+        "serviceTier": null
+      },
+      {
+        "id": "compaction",
+        "model": {
+          "id": "gpt-6.1-sol",
+          "providerID": "openai",
+          "variant": "medium"
+        },
+        "serviceTier": "default"
+      },
+      {
+        "id": "title",
+        "model": {
+          "id": "qwen-3.8-nf-splash",
+          "providerID": "omlx"
+        },
+        "serviceTier": null
+      },
+      {
+        "id": "summary",
+        "model": {
+          "id": "gpt-6.1-sol",
+          "providerID": "openai",
+          "variant": "medium"
+        },
+        "serviceTier": "default"
+      },
+      {
+        "id": "plan",
+        "model": {
+          "id": "gpt-6.1-sol",
+          "providerID": "openai",
+          "variant": "medium"
+        },
+        "serviceTier": "default"
+      },
+      {
+        "id": "cloud-reviewer",
+        "model": {
+          "id": "gpt-6.1-sol",
+          "providerID": "openai",
+          "variant": "high"
+        },
+        "serviceTier": "default"
+      }
+    ],
+    "passed": true
+  },
+  "baseline_isolation": {
+    "passed": true,
+    "nativeBuildSystemPreserved": true,
+    "mode": "primary",
+    "customGlobalAgentsAbsent": true,
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "high"
+    },
+    "serviceTier": "default"
+  },
+  "matched_baseline_reverification": true,
+  "python_compile": true,
+  "plugin_js_syntax": true,
+  "cloud_inference_during_save_commit_capture": false
+}

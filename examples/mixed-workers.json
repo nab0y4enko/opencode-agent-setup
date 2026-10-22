@@ -1,0 +1,47 @@
+[
+  {
+    "id": "orchestrator",
+    "model": "openai/gpt-6.1-sol#medium",
+    "prompt": "enhance"
+  },
+  {
+    "id": "general",
+    "model": "omlx/qwen-3.8-nf-splash",
+    "prompt": "enhance"
+  },
+  {
+    "id": "explore",
+    "model": "omlx/qwen-3.8-nf-splash",
+    "prompt": "enhance"
+  },
+  {
+    "id": "plan",
+    "model": "openai/gpt-6.1-sol#medium",
+    "prompt": "enhance"
+  },
+  {
+    "id": "compaction",
+    "model": "openai/gpt-6.1-sol#medium",
+    "prompt": "native"
+  },
+  {
+    "id": "title",
+    "model": "omlx/qwen-3.8-nf-splash",
+    "prompt": "native"
+  },
+  {
+    "id": "summary",
+    "model": "openai/gpt-6.1-sol#medium",
+    "prompt": "native"
+  },
+  {
+    "id": "build",
+    "model": "openai/gpt-6.1-sol#high",
+    "prompt": "enhance"
+  },
+  {
+    "id": "cloud-reviewer",
+    "model": "openai/gpt-6.1-sol#high",
+    "prompt": "enhance"
+  }
+]

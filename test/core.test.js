@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { buildOverrides, promptDiff, selectModel, baseline } from '../src/policy.js';
+import { buildOverrides, promptDiff, selectModel, baseline, suggestedCategory } from '../src/policy.js';
 import { parseConfig, preview, apply, undo, resetChanges, readTarget } from '../src/store.js';
 const models = [{providerID:'openai',id:'strong',variants:[{id:'high'}],capabilities:{tools:true}}, {providerID:'omlx',id:'qwen',variants:[],capabilities:{tools:true}}];
 const fixture = () => { const dir=fs.mkdtempSync(path.join(os.tmpdir(),'native patcher '));return {dir,file:path.join(dir,'opencode.jsonc'),state:path.join(dir,'state')}; };
@@ -106,4 +106,25 @@ test('implementation policy stops on any unrelated staged change before editing'
   assert.match(text,/If any unrelated changes are staged, stop before editing/);
   assert.match(text,/pathspec.*not.*bypass/);
  }
+});
+
+test('cloud coordinator retains access to local workers and cloud escalation/review',()=>{
+ const changes=buildOverrides([{id:'orchestrator',model:'omlx/qwen',prompt:'enhance'}]);
+ const rules=changes.find(c=>c.path.join('.')==='agents.orchestrator.permissions').value;
+ const effective=resource=>rules.filter(r=>r.action==='*'||r.action==='subagent'&&(r.resource==='*'||r.resource===resource)).at(-1)?.effect;
+ assert.equal(effective('general'),'allow');assert.equal(effective('explore'),'allow');
+ assert.equal(effective('build'),'allow');assert.equal(effective('cloud-reviewer'),'allow');
+ assert.equal(effective('orchestrator'),'deny');
+});
+
+test('enhanced Build retains cloud review without coordinator or Build loops',()=>{
+ const rules=buildOverrides([{id:'build',prompt:'enhance'}]).find(c=>c.path.join('.')==='agents.build.permissions').value;
+ const effective=resource=>rules.filter(r=>r.action==='subagent'&&(r.resource==='*'||r.resource===resource)).at(-1)?.effect;
+ assert.equal(effective('general'),'allow');assert.equal(effective('explore'),'allow');
+ assert.equal(effective('cloud-reviewer'),'allow');assert.equal(effective('build'),'deny');assert.equal(effective('orchestrator'),'deny');
+});
+
+test('recommendations reserve judgment and context synthesis for cloud; local roles execute bounded work',()=>{
+ for(const id of ['orchestrator','plan','build','cloud-reviewer','compaction','summary'])assert.equal(suggestedCategory(id),'OpenAI',id);
+ for(const id of ['general','explore','scout','title'])assert.equal(suggestedCategory(id),'local Qwen',id);
 });

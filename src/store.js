@@ -81,8 +81,15 @@ export async function undo(file,{state,expected,validate=async()=>{}}={}){
  return locked(file,async()=>{
   const p=undoPreview(file,{state});
   if(expected!==undefined&&p.before!==expected)throw Error('Configuration changed since undo preview; review again.');
+  const changes=p.history.at(-1).changes.map(c=>({path:c.path,value:c.before,previousValue:c.after,restoration:true}));
   if(p.after===null){if(fs.existsSync(file))fs.unlinkSync(file);}else atomic(file,p.after);
-  try{await validate(file,[]);}catch(e){if(p.before===null){if(fs.existsSync(file))fs.unlinkSync(file);}else atomic(file,p.before);throw e;}
+  try{
+   await validate(file,changes);
+   if(readTarget(file)!==p.after)throw Error('Configuration changed during undo validation; recovery history retained.');
+  }catch(e){
+   if(readTarget(file)===p.after){if(p.before===null){if(fs.existsSync(file))fs.unlinkSync(file);}else atomic(file,p.before);}
+   throw e;
+  }
   p.history.pop();atomic(p.dest,JSON.stringify(p.history,null,2));return {changed:p.before!==p.after};
  });
 }

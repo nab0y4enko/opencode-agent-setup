@@ -1,13 +1,14 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { select, search, input, editor, confirm } from '@inquirer/prompts';
 import { createTwoFilesPatch } from 'diff';
 import { baseline,customIds,order,enhancement,buildOverrides,promptDiff,suggestedCategory,selectModel } from './policy.js';
 import { readTarget,parseConfig,preview,apply,undo,undoPreview,resetChanges,redact,redactText } from './store.js';
 import {privateCredential,writeCredential} from './credentials.js';
-import { discover,validateNative,overrideWarnings,localModels,proposedLocalProvider,validateLocalEndpoint,executable } from './native.js';
+import { discover,validateNative,overrideWarnings,localModels,proposedLocalProvider,validateLocalEndpoint,executable,run,supportedVersion } from './native.js';
 import { openDatabase,loadTree,findRoot,listRoots,analyze,render,renderComparison } from './usage.js';
 const help=`Native OpenCode agent setup (supported: 2.1.2). No ports are changed.
 
@@ -28,6 +29,8 @@ Choices JSON: [{"id":"general","model":"omlx/ACTUAL-ID","prompt":"enhance"}]
 Prompt modes: native (keep), enhance, restore (remove system override), custom (+ text).
 model:null removes the agent model override; omitted model leaves it unchanged.
 --yes authorizes a reviewed apply/reset/undo without terminal confirmation.
+Undo can restore journaled bytes without a working supported OpenCode runtime;
+when native validation is unavailable, the result is explicitly marked unvalidated.
 Reset preserves providers, credentials and unrelated settings. Agent Markdown files and
 higher-priority config require separate review and are never silently deleted.
 `;
@@ -62,7 +65,7 @@ function show(file,changes,currentAgents=baseline){
 async function chooseModel(id,models){
  const category=suggestedCategory(id);
  const suggested=models.filter(m=>m.capabilities?.tools!==false).filter(m=>category==='local Qwen'?/qwen/i.test(m.id)&&/omlx|local|mlx/i.test(m.providerID):m.providerID==='openai'||m.providerID==='chatgpt');
- console.log(`Suggested policy: ${category}${['build','plan','cloud-reviewer'].includes(id)?', high effort for difficult work':', medium effort where supported'}. No automatic fallback.`);
+ console.log(`Suggested policy: ${category}${category==='OpenAI'?', planning, review and difficult implementation':', prefer the local model default'}. No automatic fallback.`);
  const action=await select({message:`${id}: model`,choices:[{name:'Keep current/native selection',value:'keep'},...(suggested.length?[{name:`Choose suggested ${category} models`,value:'suggested'}]:[]),{name:'Choose any available model',value:'all'},{name:'Remove model override (inherit)',value:'inherit'},{name:'Back to previous agent',value:'back'}]});
  if(action==='keep'||action==='back')return action;if(action==='inherit')return null;
  const choices=action==='suggested'?suggested:models;
@@ -76,8 +79,8 @@ async function wizard(opts,file,info){
  let localChanges=[],models=info.models,pendingCredential;
  console.log('Orchestrator is an optional CUSTOM primary agent. Build/Plan are native primary agents; General/Explore are native workers.');
  console.log('Native worker model choices are defaults; explicit session/UI selections can override them.');
- const profile=await select({message:'Orchestration profile',choices:[{name:'Add optional Orchestrator (coordinate/review, no direct edits)',value:'coordinator'},{name:'Keep native Build/Plan roles only',value:'native'}]});
- const reviewer=await confirm({message:'Add optional cloud-reviewer subagent for difficult reasoning?',default:profile==='coordinator'});
+ const profile=await select({message:'Orchestration profile',choices:[{name:'Add cloud Orchestrator (Sol plans/reviews; Qwen executes)',value:'coordinator'},{name:'Keep native Build/Plan roles only',value:'native'}]});
+ const reviewer=await confirm({message:'Add optional independent cloud reviewer? The cloud coordinator already reviews routine work.',default:false});
  while(true){
  const providerAction=await select({message:'Model providers',choices:[{name:'Continue with available/configured models',value:'current'},{name:'Connect OpenAI through native login, then refresh',value:'login'},{name:'Configure existing local oMLX endpoint, then discover Qwen',value:'local'}]});
  if(providerAction==='current')break;
@@ -140,7 +143,7 @@ async function wizard(opts,file,info){
  }
  console.log(result.changed?'Saved and validated. Use a fresh OpenCode session. Backups are private in the setup state directory.':'Already configured; no changes.');
 }
-const pluginSource=path.resolve(path.dirname(new URL(import.meta.url).pathname),'../plugin/agent-usage');
+const pluginSource=fileURLToPath(new URL('../plugin/agent-usage',import.meta.url));
 function pluginTarget(opts){
  const root=opts.project?path.join(process.cwd(),'.opencode'):path.join(process.env.XDG_CONFIG_HOME??path.join(os.homedir(),'.config'),'opencode');
  return path.join(root,'plugins','agent-usage');
@@ -152,11 +155,13 @@ function plugin(opts){
  if(action==='install'){
   if(linked()){console.log(`already installed: ${target}`);return;}
   if(fs.existsSync(target)||(()=>{try{fs.lstatSync(target);return true;}catch{return false;}})())throw Error(`${target} exists and is not this tool's link; remove it first.`);
+  if(opts['dry-run']){console.log(`Would install: ${target} -> ${pluginSource}`);return;}
   fs.mkdirSync(path.dirname(target),{recursive:true});fs.symlinkSync(pluginSource,target,'dir');
   console.log(`installed: ${target} -> ${pluginSource}\nRestart OpenCode. Live panel: /usage. The plugin reads session data only; it makes no model requests.`);return;
  }
  if(action==='uninstall'){
   if(!linked()){if(fs.existsSync(target))throw Error(`${target} is not a link installed by this tool; not removing it.`);console.log('not installed');return;}
+  if(opts['dry-run']){console.log(`Would remove: ${target}`);return;}
   fs.unlinkSync(target);console.log(`removed ${target}`);return;
  }
  throw Error(`Unknown plugin action: ${action}`);
@@ -189,6 +194,26 @@ export async function main(argv=process.argv.slice(2)){
  if(opts.command==='preview'){
   if(!opts.choices)throw Error('--choices FILE is required');show(file,buildOverrides(JSON.parse(fs.readFileSync(opts.choices,'utf8'))));return;
  }
+ if(opts.command==='undo'){
+  const p=undoPreview(file);console.log(createTwoFilesPatch(file,file,redactText(p.before??''),redactText(p.after??'')));
+  if(!await approved('Undo this transaction?',opts))return;
+  let validation='validated';
+  await undo(file,{expected:p.before,validate:async(target,changes)=>{
+   let version;
+   try{version=run(['--version']);}catch{validation='unavailable';return;}
+   if(!supportedVersion(version)){validation='unsupported';return;}
+   try{await validateNative(target,changes);}catch(error){
+    // An unavailable command must not prevent disk recovery. Effective-setting
+    // mismatches still fail validation and retain the recovery transaction.
+    if(error.cause){validation='unavailable';return;}
+    if(error.code==='NATIVE_RESTORATION_UNVERIFIABLE'){validation='unverifiable inherited or interpolated configuration sources';return;}
+    throw error;
+   }
+  }});
+  const reason=validation==='unsupported'?'unsupported OpenCode version':validation==='unavailable'?'native validation unavailable':validation;
+  console.log(validation==='validated'?'Previous configuration restored and native-validated. Start a fresh session.':`Previous configuration restored on disk; not native-validated (${reason}). Inspect effective settings when OpenCode is available.`);
+  return;
+ }
  console.log('Discovering native OpenCode agents/models (no inference)…');const info=await discover();
  if(opts.command==='inspect'){console.log(JSON.stringify({file,...redact(info),models:info.models.map(m=>({id:`${m.providerID}/${m.id}`,variants:m.variants})),warnings:overrideWarnings(file,info.sources)},null,2));return;}
  if(!info.supported)throw Error(`Unsupported version ${info.version}; inspect is available, writes are disabled.`);
@@ -202,10 +227,6 @@ export async function main(argv=process.argv.slice(2)){
  }
  const warnings=overrideWarnings(file,info.sources);for(const w of warnings)console.log('Notice: '+w);
  if(opts.command==='wizard'){await wizard(opts,file,info);return;}
- if(opts.command==='undo'){
-  const p=undoPreview(file);console.log(createTwoFilesPatch(file,file,redactText(p.before??''),redactText(p.after??'')));
-  if(await approved('Undo this transaction?',opts)){await undo(file,{expected:p.before,validate:validateNative});console.log('Previous configuration restored.');}return;
- }
  let changes;
  if(opts.command==='reset'){
   const obj=parseConfig(readTarget(file)??'{}');let includeCustom=opts.yes;

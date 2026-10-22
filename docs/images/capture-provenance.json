@@ -1,0 +1,16 @@
+{
+  "source": "Native OpenCode TUI on PTY; xterm headless buffer rendered by Chromium",
+  "sessionID": "ses_e9a47a515ffey6eSE5MSEOftx0",
+  "columns": 180,
+  "rows": 48,
+  "messagesBefore": 259,
+  "messagesAfter": 259,
+  "submittedText": "/usage",
+  "desktopScreenshotAvailable": false,
+  "sourceSha256": "cd8fb4d67d9348ec2c2899a63fe983f0f8fbc43cc6c82c64202034576b780640",
+  "imagesSha256": {
+    "usage-widget.png": "d7788c0841d23b0ed8dc6a5e446057336387ce99632f43acc9af53085e675a92",
+    "usage-details.png": "294aa52133185af0506cd301fbede9d1837b2f08b3b332b378f3535ceb9d4e69",
+    "usage-sidebar.png": "337985f90eeaf439e94b1fd7876d3030697fde63716c9ecb5dfbf7cd380dfbdf"
+  }
+}
