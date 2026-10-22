@@ -76,3 +76,14 @@ python3 scripts/staged-conflict-smoke.py /absolute/path/to/the/stage-smoke-repo
 ```
 
 See the revised section of `docs/test-report.md` for mixed-model commits, independent validation and the staged-user-work negative test. Prompt instructions improve discipline but are not hard runtime enforcement; commits provide audit/rollback checkpoints, not proof of correctness.
+
+## Install from this repository
+
+```sh
+cd ~/Projects/opencode-agent-setup
+npm ci --ignore-scripts
+npm link --ignore-scripts
+opencode-agent-setup
+```
+
+The installed command uses this checkout. The repository remote is configured separately; local commits are not automatically pushed.
