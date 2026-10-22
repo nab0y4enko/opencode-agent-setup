@@ -58,3 +58,21 @@ The explicit local smoke scripts use oMLX's current key and endpoint and make lo
 See `docs/test-report.md` for the observed results and limitations. Prompt wording is centralized in `src/policy.js`; `artifacts/all-agent-prompt-changes.diff` shows every optional role enhancement, and `artifacts/prompt-changes.diff` shows the local-worker example. Native baseline text is captured in `data/builtin-2.1.2.json` from the unmodified runtime. OMO was consulted for delegation principles only; no OMO prompt text, package or scheduler is installed.
 
 The launcher is installed using `npm link --ignore-scripts` and points to this source directory. Keep the directory to retain the command. Dependencies are locked in `package-lock.json`; Node 24 was used for verification.
+
+## Stage commits and self-checks
+
+The enhanced profiles now require a verified commit after each completed implementation task or planned stage. Implementers inspect Git state before editing, diagnose the root cause, run required checks and inspect their diff against acceptance criteria before committing. Final reports include STATUS, CHECKS, SELF_CHECK and COMMIT evidence. A failed or blocked required check is not completion, and test-only/read-only work does not need an empty commit.
+
+User work is protected conservatively: any unrelated staged change or existing edit to an owned file requires NEEDS_CONTEXT before editing. Pathspec commits are not an exception. Shared-checkout writers run sequentially; parallel writing requires separate worktrees. No automatic pushes, amends, resets, Git identity changes or repository initialization are permitted without authorization.
+
+Orchestrator can call the enhanced OpenAI Build agent for hard fixes. Build uses `mode: all`, so it remains selectable as a primary agent. A child Build executes the assigned task itself and must not delegate back to the coordinator. The coordinator reviews local-worker evidence and commit checkpoints; risky changes can receive independent cloud review. Detailed exact templates are in `src/prompts.js`.
+
+Explicit live checks (make local/cloud inference requests):
+
+```sh
+python3 scripts/stage-commit-smoke.py
+python3 scripts/verify-stage-result.py artifacts/stage-commit-result.json
+python3 scripts/staged-conflict-smoke.py /absolute/path/to/the/stage-smoke-repo
+```
+
+See the revised section of `docs/test-report.md` for mixed-model commits, independent validation and the staged-user-work negative test. Prompt instructions improve discipline but are not hard runtime enforcement; commits provide audit/rollback checkpoints, not proof of correctness.

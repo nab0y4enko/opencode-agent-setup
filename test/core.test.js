@@ -94,3 +94,16 @@ test('implementation policies define evidence, self-review and safe stage commit
   assert.match(text,/SELF_CHECK/);assert.match(text,/COMMIT/);assert.match(text,/unrelated staged/);assert.match(text,/NEEDS_CONTEXT/);assert.match(text,/root cause/);
  }
 });
+test('coordinator serializes shared-checkout writers and can resolve blockers without advancing stages',()=>{
+ const text=buildOverrides([{id:'orchestrator',prompt:'enhance'}]).find(c=>c.path.at(-1)==='system').value;
+ assert.match(text,/shared checkout.*serial|serial.*shared checkout/);
+ assert.match(text,/separate worktree/);
+ assert.match(text,/BLOCKED.*dependent stages/);
+});
+test('implementation policy stops on any unrelated staged change before editing',()=>{
+ for(const id of ['general','build']){
+  const text=buildOverrides([{id,prompt:'enhance'}]).find(c=>c.path.at(-1)==='system').value;
+  assert.match(text,/If any unrelated changes are staged, stop before editing/);
+  assert.match(text,/pathspec.*not.*bypass/);
+ }
+});
