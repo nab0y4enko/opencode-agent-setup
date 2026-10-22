@@ -80,3 +80,17 @@ test('undo rejects any edit after the user reviewed its preview',async()=>{
 test('keep existing custom role does not overwrite its prompt or permissions',()=>{
  const changes=buildOverrides([{id:'orchestrator',existing:true,prompt:'native'}]);assert.deepEqual(changes,[]);
 });
+test('enhanced Build is callable without coordinator/Build dispatch loops',()=>{
+ const changes=buildOverrides([{id:'orchestrator',prompt:'enhance'},{id:'build',prompt:'enhance'}]);
+ assert.equal(changes.find(c=>c.path.join('.')==='agents.build.mode')?.value,'all');
+ const parent=changes.find(c=>c.path.join('.')==='agents.orchestrator.permissions').value;
+ assert.ok(parent.some(r=>r.action==='subagent'&&r.resource==='build'&&r.effect==='allow'));
+ const child=changes.find(c=>c.path.join('.')==='agents.build.permissions')?.value;
+ assert.ok(child?.some(r=>r.action==='subagent'&&r.resource==='orchestrator'&&r.effect==='deny'));
+});
+test('implementation policies define evidence, self-review and safe stage commits',()=>{
+ for(const id of ['general','build']){
+  const text=buildOverrides([{id,prompt:'enhance'}]).find(c=>c.path.at(-1)==='system').value;
+  assert.match(text,/SELF_CHECK/);assert.match(text,/COMMIT/);assert.match(text,/unrelated staged/);assert.match(text,/NEEDS_CONTEXT/);assert.match(text,/root cause/);
+ }
+});

@@ -9,3 +9,9 @@ Review findings fixed with regression tests: empty custom role after undo, undo-
 Ruling: use a referenced private key file after explicit wizard confirmation for local provider credentials, because the already-running shared service does not inherit newly exported shell variables. No service restart or port reconfiguration required.
 Verified: 24/24 automated/native/local-registration tests; 3/3 real PTY flows; npm audit zero vulnerabilities. Real Splash worker: 3/3 tests in 11.69 seconds. Shipped Orchestrator+General templates: one foreground dispatch, no coordinator edit/shell calls, 3/3 tests in 39.14 seconds; both agents local Qwen for this test.
 Limitation: OpenAI inference integration awaits native OpenAI authentication. No global agent selections were applied; the user runs the wizard to review/select models and exact prompt changes.
+
+## Revision: stage checkpoints and stronger agent contracts
+
+User authorized prompt revision, callable Build escalation and isolated tests; production apply remains pending review.
+Stage 1 self-check: preserved native Explore instructions; Build mode all plus explicit Orchestrator allow; prevent Build/Orchestrator recursion; bounded General has no nested dispatch. Implementers inspect Git state, verify and self-review before explicit-path stage commits; blocked validation is not completion, unrelated staged/user edits require context, no pushes/amends/reset/identity changes.
+Stage 1 validation: RUN_NATIVE_TESTS=1 RUN_LOCAL_TESTS=1 npm test -> 26 passed; python3 test/terminal.py -> 3 passed. No port settings changed.
