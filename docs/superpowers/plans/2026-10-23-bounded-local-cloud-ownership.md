@@ -9,8 +9,8 @@ Alternatives: a lower local step cap would stop work sooner without improving as
 Implementation and verification:
 - [x] Revise `src/prompts.js`; remove conflicting blanket failure/attempt rules and multi-stage local delegation. Update README and balanced-profile guidance.
 - [x] Run existing core and complete test suites; native integration must load revised General/Build/Orchestrator instructions in a disposable directory without model generation. Review example routing cases: small mechanical change, native focus defect, failed but informative cloud test, local budget exhaustion, external blocker.
-- [ ] Review the diff; commit verified source/docs. Apply only revised system fields transactionally to the global JSON using existing backup/conflict checks. Validate in a disposable configuration and read-only runtime discovery; never reload, cancel, resume or prompt the running session.
-- [ ] Verify unchanged global settings and monitor running-session identity/state read-only. Record checks and rollback journal in local activation evidence. New sessions are the reliable boundary for revised instructions; already-running work is not migrated.
+- [x] Review the diff; commit verified source/docs. Apply only revised system fields transactionally to the global JSON using existing backup/conflict checks. Validate in a disposable configuration and read-only runtime discovery; never reload, cancel, resume or prompt the running session.
+- [x] Verify unchanged global settings and monitor running-session identity/state read-only. Record checks and rollback journal in local activation evidence. New sessions are the reliable boundary for revised instructions; already-running work is not migrated.
 
 Limits: static/native configuration checks prove instructions are loaded, not better model behavior or quota savings. Do not run a competing Tiviary test job or an inference benchmark against the active local worker.
 
@@ -27,3 +27,5 @@ Semantic review cases (fresh read-only reviewer: no actionable findings; final o
 No model benchmark was run because the existing OpenCode job is using the shared local service. This review and native loading checks establish instruction consistency and effective configuration, not measured behavior or savings.
 
 Verification: focused CLI/core 28/28 passed; full suite with native/local-discovery/plugin checks 155 passed, zero failed, one inference completion test intentionally skipped (156 total; 166.7 seconds). Disposable native preflight loaded all three revised prompts exactly. First full run exposed a CLI wording expectation; explicit assigned-scope wording was restored, then the full suite passed. No model generation benchmark was performed.
+
+Global rollout: source committed as `bc4a743`; transactional application succeeded, with exact effective prompts verified from a fresh location. All other global configuration and effective agent fields matched before/after. The same root dispatch and child shell tool remained running across application. No reload, restart, prompt, cancel or resume was issued. Activation and rollback-journal reference: `artifacts/bounded-routing-activation.json`.
