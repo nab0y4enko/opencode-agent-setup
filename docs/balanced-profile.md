@@ -14,7 +14,7 @@ The balanced profile is activated globally in `/Users/oleksii.naboichenko/.confi
 
 Every configured OpenAI role explicitly requests `service_tier: "default"` (Standard) and uses the ordinary model ID, not a Fast model ID. Background warming is disabled. Existing service ports were preserved; oMLX was discovered and authenticated at its existing endpoint. Its key is referenced through a private credential file (0600, with a 0700 parent directory); the global JSON does not contain the key itself.
 
-Orchestrator is the default primary agent, cannot edit or run shell, and can dispatch local General/Explore as well as cloud Build/reviewer. General retains its no-delegation and 24-step limits. Planning and final review remain on Sol. Related implementation stages reuse one local worker context, with separate verified commits.
+Orchestrator is the default primary agent, cannot edit or run shell, and can dispatch local General/Explore as well as cloud Build/reviewer. General retains its no-delegation and 24-step limits. Planning and final review remain on Sol. General receives one small objective, normally at most three production files plus associated tests/docs and one focused validation target. These are prompt sizing defaults, not runtime permission limits. Hard focus/lifecycle/concurrency, architectural and cross-component fixes go directly to Sol Build. Local blockers escalate once; Build retains the coherent fix stage through evidence-backed corrections and required validation. The coordinator reviews completed stages rather than imposing a handoff after each red check. Verified stage commits and genuine-blocker stops remain required.
 
 Astra remains an exceptional, explicitly selected cloud escalation; it is not an automatic default. To request it deliberately, select the available Astra model for a difficult cloud Build session. Luna has not replaced any planner/reviewer role; it remains a candidate requiring representative quality evaluation.
 
@@ -31,3 +31,9 @@ opencode-agent-setup undo
 Undo preserves credential files, as documented by the existing credential/recovery policy.
 
 The statistics plugin is now installed globally at `~/.config/opencode/plugins/agent-usage`, linked to this checkout. Fresh native checks revalidated all configured model variants, Standard service tier, disabled warming and the installed link. Open `/usage` in a fresh OpenCode instance; [actual terminal captures](images/README.md) show the completed benchmark without another model request. The durable [benchmark receipt](benchmarks/2026-10-22-cloud-led.json) contains the verified measurements.
+
+## Routing revision — 23 October 2026
+
+The revision removes the earlier multi-stage local assignment recommendation and the blanket stop after a failed check. Qwen retains its 24-step budget and cannot plan or judge final correctness. Sol Build continues within its authorized stage while distinct hypotheses produce progress; it still stops for external blockers, ownership conflicts, material scope decisions, exhausted execution budget or repeated attempts without progress. Continuations reuse the owning session and existing receipts. Model assignments, step budgets, permissions and service settings are preserved.
+
+Global application writes only the Orchestrator, General and Build system fields using the transaction journal. No reload, restart, cancellation or prompt is sent to an existing session. Start a fresh session for a reliable boundary for the revised instructions; the running session is not migrated. Native configuration loading tests do not establish model behavior or subscription savings. Local activation evidence is retained under `artifacts/bounded-routing-activation.json`.

@@ -11,10 +11,11 @@ function fixture(){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'opencode-nati
 test('native runtime loads custom roles, effective permissions and exact worker prompt, then undo',{skip:!live},async()=>{
  const {dir,file,state}=fixture();const info=await discover(dir);assert.ok(info.agents.some(agent=>agent.id==='build'));
  const model=info.models[0];const ref=`${model.providerID}/${model.id}`;
- const changes=[...buildOverrides([{id:'orchestrator',model:ref,prompt:'enhance'},{id:'build',model:ref,prompt:'enhance'},{id:'cloud-reviewer',model:ref,prompt:'enhance'},{id:'explore',model:ref,prompt:'enhance'}]),{path:['default_agent'],value:'orchestrator'}];
+ const changes=[...buildOverrides([{id:'orchestrator',model:ref,prompt:'enhance'},{id:'build',model:ref,prompt:'enhance'},{id:'general',model:ref,prompt:'enhance'},{id:'cloud-reviewer',model:ref,prompt:'enhance'},{id:'explore',model:ref,prompt:'enhance'}]),{path:['default_agent'],value:'orchestrator'}];
  await apply(file,changes,{state,expected:null,validate:validateNative});
  const actual=api('agent.list',dir);assert.equal(actual[0].id,'orchestrator');
  assert.equal(actual.find(a=>a.id==='build').mode,'all');
+ for(const id of ['orchestrator','general','build'])assert.equal(actual.find(a=>a.id===id).system,changes.find(c=>c.path.join('.')===`agents.${id}.system`).value,`${id} exact revised runtime instructions`);
  const coordinator=actual[0];assert.equal(coordinator.model.id,model.id);assert.ok(coordinator.permissions.some(r=>r.action==='shell'&&r.effect==='deny'));
  assert.match(actual.find(a=>a.id==='explore').system,/MUST NOT create/);
  await undo(file,{state,expected:fs.readFileSync(file,'utf8'),validate:validateNative});assert.equal(fs.existsSync(file),false);
