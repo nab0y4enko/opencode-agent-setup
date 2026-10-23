@@ -42,22 +42,28 @@ with tempfile.TemporaryDirectory(prefix='agent-usage-runtime-') as temporary:
     transcript+=data
  try:
   read(5);os.write(fd,b'/usage');read(.5);os.write(fd,b'\r');read(4)
+  baseline=transcript
+  os.write(fd,b'c');read(.7);configured=transcript
+  os.write(fd,b'c');read(.4);os.write(fd,b'w');read(.7);advanced=transcript
  finally:
   try:os.kill(pid,signal.SIGTERM)
   except ProcessLookupError:pass
   try:os.waitpid(pid,0)
   except ChildProcessError:pass
   os.close(fd)
+ spec=__import__('importlib.util',fromlist=['util']).spec_from_file_location('screen',repo/'test/terminal-screen.py');screen=__import__('importlib.util',fromlist=['util']).module_from_spec(spec);spec.loader.exec_module(screen)
+ current=screen.screen_text(baseline,rows=45,columns=150)
+ configured_screen=screen.screen_text(configured,rows=45,columns=150);advanced_screen=screen.screen_text(advanced,rows=45,columns=150)
  text=clean(transcript);reportdir=base/'state/opencode-agent-setup/usage';reportfile=reportdir/(ids[0]+'.json')
  usage=json.loads(reportfile.read_text()) if reportfile.exists() else {}
  with sqlite3.connect(base/'data/opencode/opencode.db') as db:
   messages=db.execute('select count(*) from session_message').fetchone()[0]
- result={'tuiUsageRendered':'Agent usage' in text,'originIDRendered':ids[0] in text,'originTitleRendered':'Older originating root' in text,'routingRendered':'Routing: Model class unknown' in text,'reportWritten':bool(usage),'reportRootMatches':usage.get('root',{}).get('id')==ids[0],'reportRouting':usage.get('routing',{}).get('status'),'textAndLatestWritten':(reportdir/(ids[0]+'.txt')).exists() and (reportdir/'latest.txt').exists(),'messageCount':messages,'completionSource':'Synthetic iterable passed to production server.setup in native Bun runtime','limitation':'Natural model-completion event delivery and visible newest/back interaction are not asserted; navigation helper regressions cover origin/back/newest.'}
+ result={'tuiUsageRendered':'Agent usage' in text,'originIDRendered':ids[0] in text,'originTitleRendered':'Older originating root' in text,'routingRendered':'Routing: Model class unknown' in text,'reportWritten':bool(usage),'reportRootMatches':usage.get('root',{}).get('id')==ids[0],'reportRouting':usage.get('routing',{}).get('status'),'textAndLatestWritten':(reportdir/(ids[0]+'.txt')).exists() and (reportdir/'latest.txt').exists(),'messageCount':messages,'rawMetricsRendered':all(label in current for label in ['Input tokens','Output tokens','Reasoning tokens','Cache read / write','API cost','Local cost']),'modelStateRendered':'No model running' in current and 'Selected in UI:' in current,'reviewContextRendered':'Reported verdict: Not reported' in current and 'Independent review: Not observed' in current,'weightedSecondary':'Weighted heuristic:' not in current,'configuredRolesToggled':'CONFIGURED ROLES' in configured_screen and 'build ·' in configured_screen,'weightedToggled':'Weighted heuristic:' in advanced_screen,'completionSource':'Synthetic iterable passed to production server.setup in native Bun runtime','limitation':'Natural model-completion event delivery and visible newest/back interaction are not asserted; navigation helper regressions cover origin/back/newest.'}
  (repo/'artifacts').mkdir(exist_ok=True);(repo/'artifacts/review-plugin-runtime.json').write_text(json.dumps(result,indent=2));print(json.dumps(result))
 `;
  const result=spawnSync('python3',['-c',program,path.resolve('.')],{encoding:'utf8',timeout:35000,maxBuffer:1024*1024});
  assert.equal(result.status,0,result.stderr+result.stdout);
  const evidence=JSON.parse(result.stdout);
- for(const key of ['tuiUsageRendered','originIDRendered','originTitleRendered','routingRendered','reportWritten','reportRootMatches','textAndLatestWritten'])assert.equal(evidence[key],true,`${key}: ${result.stdout}`);
+ for(const key of ['tuiUsageRendered','originIDRendered','originTitleRendered','routingRendered','reportWritten','reportRootMatches','textAndLatestWritten','rawMetricsRendered','modelStateRendered','reviewContextRendered','weightedSecondary','configuredRolesToggled','weightedToggled'])assert.equal(evidence[key],true,`${key}: ${result.stdout}`);
  assert.equal(evidence.reportRouting,'unknown');assert.equal(evidence.messageCount,0);
 });

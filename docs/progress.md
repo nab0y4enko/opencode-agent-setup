@@ -59,3 +59,8 @@ The balanced cloud-led profile is active globally: Sol medium plans and reviews;
 Saved the sanitized matched benchmark receipt and actual terminal captures under `docs/benchmarks/` and `docs/images/`. Capturing the completed session added no messages or inference. Desktop screenshot access was unavailable; image provenance documents the native PTY capture and terminal rendering.
 
 Future Build baselines isolate global configuration and use a private server to preserve native instructions and permissions after profile activation. A regression test and a no-inference native API check verified the isolation. Raw runtime logs and private credentials remain outside the committed evidence.
+
+
+## Raw usage and review dashboard — 22 October 2026
+
+Implemented the approved sidebar/dashboard design with raw counters, qualified costs, elapsed/recorded timing, actual model history, current selection, configurable-role visibility, and review source navigation. The global plugin link serves this checkout; fresh OpenCode instances load the redesign. All 154 final checks passed with native/local/plugin/completion coverage, alongside 44 focused checks and independent SQLite verification of the captured benchmark. No cloud generation was used. See `docs/usage-widget.md` and the saved terminal captures.

@@ -25,7 +25,30 @@ export function toMillis(v){
 }
 const ref=m=>m?{providerID:m.providerID,id:m.id??m.modelID,variant:m.variant}:null;
 
-/** Normalizes one stored or SDK assistant message into the shape analyze() consumes. Prompts and tool output are dropped. */
+/** Retain only an explicit completed review marker; never retain the surrounding prose. */
+function explicitVerdict(d){
+ if(!Number.isFinite(toMillis(d.time?.completed))||d.error||d.finish==='error'||d.summary===true||d.type==='compaction'||d.agent==='compaction')return null;
+ let verdict=null,fence=null;
+ for(const part of d.content??[]){
+  if(part?.type!=='text')continue;
+  for(const line of (part.text??'').split(/\r?\n/)){
+   if(/^(?: {4}| *\t)/.test(line))continue;
+   const marker=line.trim().match(/^(`{3,}|~{3,})(.*)$/);
+   if(marker){
+    if(!fence)fence={char:marker[1][0],length:marker[1].length};
+    else if(marker[1][0]===fence.char&&marker[1].length>=fence.length&&!marker[2].trim())fence=null;
+    continue;
+   }
+   if(fence)continue;
+   const clean=line.trim().replace(/^#{1,6}\s+/,'').replace(/\*\*|__/g,'');
+   const match=clean.match(/^VERDICT:\s*(PASS|CHANGES_REQUIRED|NEEDS_CONTEXT|FAIL)\b/);
+   if(match)verdict=match[1];
+  }
+ }
+ return verdict;
+}
+
+/** Normalizes one stored or SDK assistant message into the shape analyze() consumes. Prompts and tool output are dropped; only an explicit completed review marker is retained. */
 export function normalizeMessage(sessionID,d,fallback={}){
  if(!d||typeof d!=='object')return null;
  const type=d.type??fallback.type??d.role;
@@ -40,12 +63,12 @@ export function normalizeMessage(sessionID,d,fallback={}){
   dispatches.push({id:part.id??null,agent:input.agent??null,background:!!input.background,sessionID:part.state?.metadata?.sessionID??null,description:input.description??null,status:part.state?.status??null});
  }
  return {id:d.id??fallback.id??null,sessionID,agent:d.agent??(compaction?'compaction':null),model:ref(d.model),created:toMillis(d.time?.created)??fallback.created??0,completed:toMillis(d.time?.completed)??toMillis(d.time?.created)??fallback.completed??0,finish:d.finish??null,cost:Number(d.cost??0),
-  compaction,error,dispatches,
+  compaction,error,dispatches,pending:toMillis(d.time?.completed)===null,reviewVerdict:explicitVerdict(d),
   tokens:{input:Number(t.input??0),output:Number(t.output??0),reasoning:Number(t.reasoning??0),cacheRead:Number(t.cache?.read??0),cacheWrite:Number(t.cache?.write??0)}};
 }
 /** Normalizes an SDK Session.Info (as the TUI data layer exposes it). */
 export function normalizeSession(s){
- return {id:s.id,parentID:s.parentID??s.parent_id??null,agent:s.agent??null,model:ref(s.model),directory:s.location?.directory??s.directory??'',title:s.title??'',created:toMillis(s.time?.created)??s.created??0,updated:toMillis(s.time?.updated)??s.updated??0,compacting:null};
+ return {id:s.id,parentID:s.parentID??s.parent_id??null,agent:s.agent??null,model:ref(s.model),directory:s.location?.directory??s.directory??'',title:s.title??'',created:toMillis(s.time?.created)??s.created??0,updated:toMillis(s.time?.updated)??s.updated??0,compacting:null,outcome:s.outcome??null,idle:toMillis(s.time?.idle)};
 }
 /** Builds an analyze() tree from SDK-shaped sessions and messages (TUI data layer), rooted at rootId. */
 export function treeFrom(sessions,messagesBySession,rootId){

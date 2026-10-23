@@ -7,10 +7,12 @@
   "messagesAfter": 259,
   "submittedText": "/usage",
   "desktopScreenshotAvailable": false,
-  "sourceSha256": "cd8fb4d67d9348ec2c2899a63fe983f0f8fbc43cc6c82c64202034576b780640",
+  "sourceSha256": "192a0422915db79d302abd04e34f5dc9525f81974478b796c7b348520a47ae63",
+  "presentationSha256": "f8d764eb9d90266ed3243572b87e5ef4251e1fdfe117e1458ea1aa4fe4b31e44",
+  "normalizerSha256": "5507e7867362dbc095ae362c84aa7c1e1af07c005098b443b0e73476c1a1bdde",
   "imagesSha256": {
-    "usage-widget.png": "d7788c0841d23b0ed8dc6a5e446057336387ce99632f43acc9af53085e675a92",
-    "usage-details.png": "294aa52133185af0506cd301fbede9d1837b2f08b3b332b378f3535ceb9d4e69",
-    "usage-sidebar.png": "337985f90eeaf439e94b1fd7876d3030697fde63716c9ecb5dfbf7cd380dfbdf"
+    "usage-widget.png": "4c8c0ef1011345c0935411519d8d50e1d02ff3bab3ae355a659d88400fc31b34",
+    "usage-details.png": "ec4d95e1e849c94fd004fab9a2ee896a85e888ec3347c6bcce2dd7b0b87795d4",
+    "usage-sidebar.png": "946ad083af486caaa7342f67abe45e6eac2cba8996321a30d8624c4a097fcc71"
   }
 }
