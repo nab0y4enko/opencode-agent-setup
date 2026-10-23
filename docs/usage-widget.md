@@ -4,7 +4,15 @@ The sidebar and `/usage` page read OpenCode's own session and assistant-message 
 
 ![Usage dashboard](images/usage-details.png)
 
-## Raw usage and cost
+## Subscription efficiency
+
+The default view leads with local/cloud **output share** and shows percentages beside each raw token category. Each share uses all observed providers in that same category as its denominator. Unknown-provider usage remains in the denominator and appears separately. Empty categories show a dash. Increasing local cache reads cannot inflate local input or output percentages. Turn share counts assistant turns, not completed tasks or quality.
+
+The widget does not read subscription-limit units, so token shares do not show the exact percentage of your plan consumed. Assess local effectiveness using both accepted results and a matched cloud-only baseline. In the saved verified task, local handled 74.7% of input and 89.7% of output; cloud input fell 47.9% and cloud output fell 44.0% compared with Build-only. Both passed the same independent checks; mixed took 122.795 seconds versus 61.802 seconds. This is one bounded task with different cloud reasoning effort and uncontrolled cache/warm state; it is not a general model-quality estimate. See the [matched comparison](cloud-led-comparison.md). Planning and final review stayed on cloud Sol.
+
+Dollar costs and missing-price notices are hidden from the default view. Press `w` for optional accounting and weighted details.
+
+## Raw usage and optional cost
 
 Cloud and Local show input, output, reasoning, cache-read and cache-write counters separately, plus contributing turns and sessions. Counts accumulate across the root and its descendants. These are native per-turn records; repeated context/cache use is included. The categories are not presented as a single billed total because provider accounting can overlap categories.
 
@@ -30,7 +38,7 @@ Costs use positive per-message amounts recorded by OpenCode when available. A ze
 | `v` | Open the reported review's source session |
 | `i` | Open the independent review's source session |
 | `c` | Toggle current configured roles |
-| `w` | Toggle the secondary weighted heuristic |
+| `w` | Toggle optional costs and the secondary weighted heuristic |
 | `n` | Select the newest root session |
 
 The weighted heuristic remains available for continuity: input + output + reasoning + cache write + 10% cache read, rounded per message. It is not billing, actual token usage or proof of savings.

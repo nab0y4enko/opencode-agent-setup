@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-22",
+  "subscriptionFocus": true,
+  "root": "ses_e9a47a515ffey6eSE5MSEOftx0",
+  "shares": {
+    "cloud": {
+      "input": 0.25253782427754656,
+      "output": 0.10294117647058823,
+      "reasoning": 0.0,
+      "cacheRead": 0.022271714922048998,
+      "cacheWrite": null
+    },
+    "local": {
+      "input": 0.7474621757224534,
+      "output": 0.8970588235294118,
+      "reasoning": 1.0,
+      "cacheRead": 0.977728285077951,
+      "cacheWrite": null
+    },
+    "unknown": {
+      "input": 0.0,
+      "output": 0.0,
+      "reasoning": 0.0,
+      "cacheRead": 0.0,
+      "cacheWrite": null
+    }
+  },
+  "cloudInputReductionVsVerifiedBuild": 0.4786832597350462,
+  "cloudOutputReductionVsVerifiedBuild": 0.4395848776871757,
+  "mixedTimeRatio": 1.9869098087440535,
+  "focusedTestsPassed": 46,
+  "nativeTestsPassed": 1,
+  "costHiddenByDefault": true,
+  "subscriptionQuotaMeasured": false,
+  "cloudInferenceDuringChange": false,
+  "captureAddedMessages": 0
+}

@@ -113,3 +113,15 @@ test('indented code and shorter nested fences cannot supply a review verdict',()
  f.messages.root[1].content=[{type:'text',text:'````markdown\n```\nVERDICT: PASS\n```\n````\nVERDICT: CHANGES_REQUIRED'}];
  assert.equal(dashboard(f.tree()).review.verdict,'CHANGES_REQUIRED');
 });
+test('subscription shares use each raw category separately and retain unknown usage in the denominator',()=>{
+ const f=fixture();f.sessions.push({id:'other',parentID:'root',model:{providerID:'unclassified',id:'model'},agent:'general'});
+ f.messages.other=[{id:'other',type:'assistant',agent:'general',model:{providerID:'unclassified',id:'model'},time:{created:5000,completed:6000},tokens:{input:120,output:100,cache:{read:350}}}];
+ const v=dashboard(f.tree());assert.equal(v.local.shares.input,200/500);assert.equal(v.cloud.shares.input,180/500);assert.equal(v.unknown.shares.input,120/500);
+ assert.equal(v.local.shares.output,70/200);assert.equal(v.local.shares.cacheRead,600/1000);assert.equal(v.local.shares.turns,1/4);
+ assert.equal(v.local.shares.reasoning,30/34);
+});
+test('empty token categories have no percentage and cache growth cannot inflate input or output shares',()=>{
+ const f=fixture(),before=dashboard(f.tree());f.messages.worker[0].tokens.cache.read=900000000;
+ const after=dashboard(f.tree());assert.equal(after.local.shares.input,before.local.shares.input);assert.equal(after.local.shares.output,before.local.shares.output);
+ assert.equal(dashboard(treeFrom([{id:'empty'}],{},'empty')).local.shares.output,null);
+});

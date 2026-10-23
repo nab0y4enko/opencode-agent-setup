@@ -7,12 +7,12 @@
   "messagesAfter": 259,
   "submittedText": "/usage",
   "desktopScreenshotAvailable": false,
-  "sourceSha256": "192a0422915db79d302abd04e34f5dc9525f81974478b796c7b348520a47ae63",
-  "presentationSha256": "f8d764eb9d90266ed3243572b87e5ef4251e1fdfe117e1458ea1aa4fe4b31e44",
+  "sourceSha256": "0c86fde98e197ac61b88f9d46e6151b9830eac885e15ccf35c567fde646a2b18",
+  "presentationSha256": "b74655a9d560971d7c153018703e059c7800686fcc1f3c3f7b86b70e1df9f445",
   "normalizerSha256": "5507e7867362dbc095ae362c84aa7c1e1af07c005098b443b0e73476c1a1bdde",
   "imagesSha256": {
-    "usage-widget.png": "4c8c0ef1011345c0935411519d8d50e1d02ff3bab3ae355a659d88400fc31b34",
-    "usage-details.png": "ec4d95e1e849c94fd004fab9a2ee896a85e888ec3347c6bcce2dd7b0b87795d4",
-    "usage-sidebar.png": "946ad083af486caaa7342f67abe45e6eac2cba8996321a30d8624c4a097fcc71"
+    "usage-widget.png": "7fb806b3cbc7e0c3bc70c16d3f32a567d3c168fbddf0375328ab87efd082dcd8",
+    "usage-details.png": "d672f6bccebcbfb9c045545ec5b7001e736d5831bb96eceb1a65ce019b01b691",
+    "usage-sidebar.png": "102d349a873174fe94cf222cd72791545ed471eeb1fe690c36fc0762ebbda590"
   }
 }

@@ -2,7 +2,7 @@
 import {Plugin} from "@opencode/plugin/tui"
 import {createEffect, createMemo, createSignal, For, Show, onCleanup} from "solid-js"
 import {analyze, num, pct, summaryLine, treeFrom} from "../../src/usage-analysis.js"
-import {dashboard, duration} from "./presentation.js"
+import {dashboard, duration, percentShare} from "./presentation.js"
 import {createUsageNavigation, latestRoot} from "./navigation.js"
 
 type Context = Plugin.Context
@@ -62,17 +62,15 @@ function UsageCard(props: {context: Context; title: string; color: Tone; stats: 
   return <box flexGrow={1} flexBasis={0} minWidth={38} border borderStyle="rounded" borderColor={props.color} backgroundColor={theme.background.raised.base} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
     <box flexDirection="row" justifyContent="space-between">
       <text fg={props.color}><b>{props.title}</b></text>
-      <text fg={theme.text.muted}>{countLabel(props.stats.turns, "turn")} · {countLabel(props.stats.sessions, "session")}</text>
+      <text fg={theme.text.muted}>{countLabel(props.stats.turns, "turn")} ({percentShare(props.stats.shares.turns)}) · {countLabel(props.stats.sessions, "session")}</text>
     </box>
-    <Metric context={props.context} label="Input tokens" value={num(props.stats.tokens.input)} />
-    <Metric context={props.context} label="Output tokens" value={num(props.stats.tokens.output)} />
-    <Metric context={props.context} label="Reasoning tokens" value={num(props.stats.tokens.reasoning)} />
-    <Metric context={props.context} label="Cache read / write" value={`${num(props.stats.tokens.cacheRead)} / ${num(props.stats.tokens.cacheWrite)}`} />
+    <Metric context={props.context} label="Input tokens" value={`${num(props.stats.tokens.input)} (${percentShare(props.stats.shares.input)})`} />
+    <Metric context={props.context} label="Output tokens" value={`${num(props.stats.tokens.output)} (${percentShare(props.stats.shares.output)})`} />
+    <Metric context={props.context} label="Reasoning tokens" value={`${num(props.stats.tokens.reasoning)} (${percentShare(props.stats.shares.reasoning)})`} />
+    <Metric context={props.context} label="Cache read tokens" value={`${num(props.stats.tokens.cacheRead)} (${percentShare(props.stats.shares.cacheRead)})`} />
+    <Metric context={props.context} label="Cache write tokens" value={`${num(props.stats.tokens.cacheWrite)} (${percentShare(props.stats.shares.cacheWrite)})`} />
     <Metric context={props.context} label="Recorded turn span" value={duration(props.stats.elapsedSeconds)} />
-    <Metric context={props.context} label={props.title === "LOCAL" ? "Local cost" : "API cost"} value={props.stats.cost.label} color={props.stats.cost.value === null ? theme.text.feedback.warning.base : props.color} />
-    <Show when={props.stats.cost.unpricedTurns && props.stats.cost.recordedValue > 0}>
-      <text fg={theme.text.feedback.warning.base}>${props.stats.cost.recordedValue.toFixed(4)} recorded; {props.stats.cost.unpricedTurns} unpriced turns</text>
-    </Show>
+
   </box>
 }
 
@@ -95,7 +93,7 @@ function UsagePage(props: {context: Context; rootID: string | undefined; onClose
     {bind: "v", title: "review source", run: openReview},
     {bind: "i", title: "independent review source", run: openIndependent},
     {bind: "c", title: "configured roles", run: () => setConfigured(!configured())},
-    {bind: "w", title: "weighted detail", run: () => setAdvanced(!advanced())},
+    {bind: "w", title: "accounting detail", run: () => setAdvanced(!advanced())},
   ]}))
   return <box width="100%" height="100%" backgroundColor={theme.background.base} paddingLeft={2} paddingRight={2} paddingTop={1}>
     <Show when={view()} fallback={<text fg={theme.text.muted}>No session data yet. Start a session, then open /usage.</text>}>
@@ -112,6 +110,7 @@ function UsagePage(props: {context: Context; rootID: string | undefined; onClose
         </box>
         <scrollbox flexGrow={1}>
           <text fg={theme.text.muted}>Routing: {v().report.routing.label} · raw per-turn token records</text>
+          <text fg={theme.text.base}>Output share: <span fg={colors.local}>local {percentShare(v().local.shares.output)}</span> · <span fg={colors.cloud}>cloud {percentShare(v().cloud.shares.output)}</span><Show when={v().unknown.tokens.output}> · unknown {percentShare(v().unknown.shares.output)}</Show></text>
           <box flexDirection="row" flexWrap="wrap" gap={2} width="100%">
             <UsageCard context={context} title="CLOUD" color={colors.cloud} stats={v().cloud} />
             <UsageCard context={context} title="LOCAL" color={colors.local} stats={v().local} />
@@ -119,7 +118,8 @@ function UsagePage(props: {context: Context; rootID: string | undefined; onClose
           <Show when={v().unknown.turns}>
             <UsageCard context={context} title="UNKNOWN PROVIDER" color={colors.unknown} stats={v().unknown} />
           </Show>
-          <text fg={theme.text.muted}>Token categories are separate. Spans include tool / delegation waits and overlap across cloud and local; they are not billed compute time.</text>
+          <text fg={theme.text.muted}>Each percentage uses that token category across all models. Shares describe routing, not exact subscription-limit consumption or task quality.</text>
+          <text fg={theme.text.muted}>Recorded spans include tool / delegation waits and may overlap across cloud and local.</text>
           <box paddingTop={1} paddingBottom={1}>
             <text fg={theme.text.base}><b>NOW</b></text>
             <Show when={v().active.length} fallback={<text fg={theme.text.muted}>No model running</text>}>
@@ -143,7 +143,8 @@ function UsagePage(props: {context: Context; rootID: string | undefined; onClose
               return <box border={['left']} borderColor={colors[entry.class] ?? colors.unknown} paddingLeft={2} marginTop={1}>
                 <text fg={colors[entry.class] ?? colors.unknown}><b>{entry.agent}</b> · {entry.model} · {entry.active ? "RUNNING" : "USED"}</text>
                 <text fg={theme.text.muted}>{usage()?.turns ?? 0} turns · in {num(usage()?.tokens.input)} · out {num(usage()?.tokens.output)} · reason {num(usage()?.tokens.reasoning)} · cache R {num(usage()?.tokens.cacheRead)} / W {num(usage()?.tokens.cacheWrite)} · {duration(usage()?.elapsedSeconds ?? 0)} identity span</text>
-                <text fg={theme.text.action.base} onMouseUp={() => context.ui.router.navigate({type: "session", sessionID: entry.sessionID})}>{entry.sessionID} · Cost: {entry.cost.label}</text>
+                <text fg={theme.text.action.base} onMouseUp={() => context.ui.router.navigate({type: "session", sessionID: entry.sessionID})}>{entry.sessionID}</text>
+                <Show when={advanced()}><text fg={theme.text.muted}>Cost: {entry.cost.label}</text></Show>
               </box>
             }}</For>
           </box>
@@ -155,19 +156,21 @@ function UsagePage(props: {context: Context; rootID: string | undefined; onClose
           </Show>
           <box paddingTop={1}>
             <text fg={theme.text.base}><b>ATTENTION</b></text>
-            <Show when={v().report.findings.length} fallback={<text fg={theme.text.muted}>No recorded usage warnings</text>}>
-              <For each={v().report.findings.slice(0, 6)}>{finding => <text fg={finding.severity === "high" ? theme.text.feedback.error.base : finding.severity === "info" ? theme.text.muted : colors.unknown}>• {finding.title} · {finding.suggestion}</text>}</For>
+            <Show when={v().report.findings.filter(f => advanced() || f.id !== "unpriced-models").length} fallback={<text fg={theme.text.muted}>No recorded routing warnings</text>}>
+              <For each={v().report.findings.filter(f => advanced() || f.id !== "unpriced-models").slice(0, 6)}>{finding => <text fg={finding.severity === "high" ? theme.text.feedback.error.base : finding.severity === "info" ? theme.text.muted : colors.unknown}>• {finding.title} · {finding.suggestion}</text>}</For>
             </Show>
           </box>
           <Show when={advanced()}>
             <box paddingTop={1}>
+              <text fg={theme.text.muted}>Cloud API cost: {v().cloud.cost.label} · Local cost: {v().local.cost.label}</text>
+              <Show when={v().cloud.cost.unpricedTurns && v().cloud.cost.recordedValue > 0}><text fg={colors.unknown}>${v().cloud.cost.recordedValue.toFixed(4)} recorded; {v().cloud.cost.unpricedTurns} unpriced cloud turns</text></Show>
               <text fg={theme.text.muted}>Weighted heuristic: cloud {num(v().report.totals.cloud.weighted)} ({pct(v().report.shares.cloudWeighted)}) · local {num(v().report.totals.local.weighted)} ({pct(v().report.shares.localWeighted)})</text>
               <text fg={theme.text.muted}>Input + output + reasoning + cache write + 10% cache read. This is not billing or an efficiency score.</text>
             </box>
           </Show>
           <text fg={theme.text.muted}> </text>
         </scrollbox>
-        <text fg={theme.text.muted} flexShrink={0}>esc back · r refresh · v review · i independent · c configured roles · w weighted detail · n newest</text>
+        <text fg={theme.text.muted} flexShrink={0}>esc back · r refresh · v review · i independent · c configured roles · w accounting details · n newest</text>
       </>}
     </Show>
   </box>
@@ -181,12 +184,14 @@ function SidebarUsage(props: {context: Context; sessionID: string}) {
       <text fg={theme.text.base}><b>Usage</b></text>
       <text fg={v().status === "failed" ? theme.text.feedback.error.base : colors.cloud}>{statusText(v().status)} · {duration(v().elapsedSeconds)}</text>
     </box>
+    <text fg={theme.text.muted}>Output: <span fg={colors.local}>local {percentShare(v().local.shares.output)}</span> · <span fg={colors.cloud}>cloud {percentShare(v().cloud.shares.output)}</span></text>
     <For each={(["cloud", "local", ...(v().unknown.turns ? ["unknown"] : [])] as const)}>{kind => <box marginTop={1}>
-      <text fg={colors[kind]}><b>{kind.toUpperCase()}</b> · {v()[kind].turns} turns · {duration(v()[kind].elapsedSeconds)} span</text>
-      <text fg={theme.text.base}>In {num(v()[kind].tokens.input)} · Out {num(v()[kind].tokens.output)}</text>
-      <text fg={theme.text.muted}>Reason {num(v()[kind].tokens.reasoning)}</text>
-      <text fg={theme.text.muted}>Cache R {num(v()[kind].tokens.cacheRead)} · W {num(v()[kind].tokens.cacheWrite)}</text>
-      <text fg={v()[kind].cost.value === null ? colors.unknown : colors[kind]}>Cost: {kind === "local" && v()[kind].cost.kind === "local" ? "Not measured" : v()[kind].cost.label}</text>
+      <text fg={colors[kind]}><b>{kind.toUpperCase()}</b> · {v()[kind].turns} turns ({percentShare(v()[kind].shares.turns)})</text>
+      <text fg={theme.text.base}>In {num(v()[kind].tokens.input)} · {percentShare(v()[kind].shares.input)}</text>
+      <text fg={theme.text.base}>Out {num(v()[kind].tokens.output)} · {percentShare(v()[kind].shares.output)}</text>
+      <text fg={theme.text.muted}>Reason {num(v()[kind].tokens.reasoning)} · {percentShare(v()[kind].shares.reasoning)}</text>
+      <text fg={theme.text.muted}>Cache R {num(v()[kind].tokens.cacheRead)} · {percentShare(v()[kind].shares.cacheRead)}</text>
+      <Show when={v().report.totals.all.raw.cacheWrite}><text fg={theme.text.muted}>Cache W {num(v()[kind].tokens.cacheWrite)} · {percentShare(v()[kind].shares.cacheWrite)}</text></Show>
     </box>}</For>
     <box marginTop={1}>
       <text fg={theme.text.base}><b>NOW</b></text>

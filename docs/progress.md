@@ -64,3 +64,7 @@ Future Build baselines isolate global configuration and use a private server to 
 ## Raw usage and review dashboard — 22 October 2026
 
 Implemented the approved sidebar/dashboard design with raw counters, qualified costs, elapsed/recorded timing, actual model history, current selection, configurable-role visibility, and review source navigation. The global plugin link serves this checkout; fresh OpenCode instances load the redesign. All 154 final checks passed with native/local/plugin/completion coverage, alongside 44 focused checks and independent SQLite verification of the captured benchmark. No cloud generation was used. See `docs/usage-widget.md` and the saved terminal captures.
+
+## Subscription focus — 22 October 2026
+
+Refocused the live right-sidebar widget on local/cloud token percentages and verified review context. The default view leads with output share; category-specific counters show input/output/reasoning/cache shares without a combined weighted proxy. Costs are secondary. The fixture demonstrates 89.7% local output and 74.7% local input, with a verified 47.9% cloud-input reduction versus Build-only and roughly double the completion time. These are observed token shares, not subscription-quota percentages. Focused checks (46) and native UI/control verification (1) passed without cloud generation.

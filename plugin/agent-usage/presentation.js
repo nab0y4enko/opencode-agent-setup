@@ -6,6 +6,8 @@ const running = value => (value?.type ?? value) === 'running';
 const endOf = message => Math.max(message.created || 0, message.completed || 0);
 const identity = row => `${row.sessionID}:${row.agent}:${typeof row.model === 'string' ? row.model : modelRef(row.model)}`;
 
+export const percentShare = fraction => fraction === null || fraction === undefined ? "—" : `${(fraction * 100).toFixed(1)}%`;
+
 export function duration(seconds) {
   if (!Number.isFinite(seconds)) return '—';
   const s = Math.max(0, Math.floor(seconds));
@@ -104,7 +106,9 @@ export function dashboard(tree, {statuses = {}, selected = null, now = Date.now(
   const group = name => {
     const rows = messages.filter(m => m.class === name), bucket = report.totals[name];
     const intervals = rows.map(m => [m.created, m.pending && running(statuses[m.sessionID]) && latest.get(m.sessionID) === m ? now : endOf(m)]);
-    return {tokens: bucket.raw, turns: bucket.turns, sessions: bucket.sessions, elapsedSeconds: unionSeconds(intervals), cost: costFor(rows, bucket, pricing)};
+    const shares = Object.fromEntries(Object.entries(bucket.raw).map(([key, count]) => [key, report.totals.all.raw[key] ? count / report.totals.all.raw[key] : null]));
+    shares.turns = report.totals.all.turns ? bucket.turns / report.totals.all.turns : null;
+    return {tokens: bucket.raw, shares, turns: bucket.turns, sessions: bucket.sessions, elapsedSeconds: unionSeconds(intervals), cost: costFor(rows, bucket, pricing)};
   };
   return {
     report,
