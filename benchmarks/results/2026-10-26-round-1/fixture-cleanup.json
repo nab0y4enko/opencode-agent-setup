@@ -1,0 +1,20 @@
+[
+  {
+    "archive_verified": true,
+    "bundle_verified": true,
+    "files": 3,
+    "removed_repo": "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/direct/opencode/repo"
+  },
+  {
+    "archive_verified": true,
+    "bundle_verified": true,
+    "files": 3,
+    "removed_repo": "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/scripted/opencode/repo"
+  },
+  {
+    "archive_verified": true,
+    "bundle_verified": true,
+    "files": 3,
+    "removed_repo": "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/native/opencode/repo"
+  }
+]

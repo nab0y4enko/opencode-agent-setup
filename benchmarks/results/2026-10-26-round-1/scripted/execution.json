@@ -1,0 +1,92 @@
+{
+  "arm": "scripted",
+  "start": 1793056952.130443,
+  "elapsed_seconds": 97.86451768875122,
+  "stages": [
+    {
+      "phase": "01-discover",
+      "argv": [
+        "python3",
+        "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/scripted/run_phase.py",
+        "opencode",
+        "01-discover",
+        "local"
+      ],
+      "start": 1793056952.130455,
+      "elapsed_seconds": 11.5449538230896,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "phase": "02-plan",
+      "argv": [
+        "python3",
+        "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/scripted/run_phase.py",
+        "opencode",
+        "02-plan",
+        "cloud"
+      ],
+      "start": 1793056963.675502,
+      "elapsed_seconds": 26.67694592475891,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "phase": "03-implement",
+      "argv": [
+        "python3",
+        "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/scripted/run_phase.py",
+        "opencode",
+        "03-implement",
+        "local"
+      ],
+      "start": 1793056990.352751,
+      "elapsed_seconds": 29.093050956726074,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "phase": "check-initial",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "-v"
+      ],
+      "start": 1793057019.4459908,
+      "elapsed_seconds": 0.041082143783569336,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "phase": "05-review",
+      "argv": [
+        "python3",
+        "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/scripted/run_phase.py",
+        "opencode",
+        "05-review",
+        "cloud"
+      ],
+      "start": 1793057019.487159,
+      "elapsed_seconds": 30.46650195121765,
+      "exit_code": 0,
+      "timed_out": false
+    },
+    {
+      "phase": "check-final",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "-v"
+      ],
+      "start": 1793057049.9539149,
+      "elapsed_seconds": 0.04100227355957031,
+      "exit_code": 0,
+      "timed_out": false
+    }
+  ],
+  "timed_out": false,
+  "host_intervention": false,
+  "configuration_unchanged": true
+}

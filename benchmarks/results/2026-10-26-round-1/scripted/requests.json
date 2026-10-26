@@ -1,0 +1,291 @@
+[
+  {
+    "session": "ses_e857a2fe2ffeb7cUpYnu1PoZyQ",
+    "message": "msg_17a85d0b4001VdBmhzl1hzrxjg",
+    "agent": "plan",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "tool-calls",
+    "input": 5874,
+    "output": 108,
+    "reasoning": 15,
+    "cache_read": 64,
+    "cache_write": 0,
+    "total": 6061
+  },
+  {
+    "session": "ses_e857a2fe2ffeb7cUpYnu1PoZyQ",
+    "message": "msg_17a85e37a0017OrCuJm3vLi2Zt",
+    "agent": "plan",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "tool-calls",
+    "input": 470,
+    "output": 223,
+    "reasoning": 38,
+    "cache_read": 5920,
+    "cache_write": 0,
+    "total": 6651
+  },
+  {
+    "session": "ses_e857a2fe2ffeb7cUpYnu1PoZyQ",
+    "message": "msg_17a85eb3d001ElQ2mS1VlrPrBr",
+    "agent": "plan",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "stop",
+    "input": 1946,
+    "output": 258,
+    "reasoning": 56,
+    "cache_read": 6368,
+    "cache_write": 0,
+    "total": 8628
+  },
+  {
+    "session": "ses_e857a0274ffekkr3L58odS6O3O",
+    "message": "msg_17a85fddf001lZl5MK3XbvQYFA",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "tool-calls",
+    "input": 4829,
+    "output": 23,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0,
+    "total": 4852
+  },
+  {
+    "session": "ses_e857a0274ffekkr3L58odS6O3O",
+    "message": "msg_17a861285001i9x29WjxclntCs",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "tool-calls",
+    "input": 399,
+    "output": 89,
+    "reasoning": 11,
+    "cache_read": 4736,
+    "cache_write": 0,
+    "total": 5235
+  },
+  {
+    "session": "ses_e857a0274ffekkr3L58odS6O3O",
+    "message": "msg_17a862bdd0012kC28ODnPlYiky",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "stop",
+    "input": 2757,
+    "output": 366,
+    "reasoning": 0,
+    "cache_read": 5120,
+    "cache_write": 0,
+    "total": 8243
+  },
+  {
+    "session": "ses_e85799a95fferGDo2cJlyFItm5",
+    "message": "msg_17a8665ff0011tGKEl2FeP8bq8",
+    "agent": "build",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "tool-calls",
+    "input": 3708,
+    "output": 65,
+    "reasoning": 14,
+    "cache_read": 2144,
+    "cache_write": 0,
+    "total": 5931
+  },
+  {
+    "session": "ses_e85799a95fferGDo2cJlyFItm5",
+    "message": "msg_17a86724c001EKpU5Jffyw7ZCb",
+    "agent": "build",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "tool-calls",
+    "input": 1061,
+    "output": 108,
+    "reasoning": 34,
+    "cache_read": 5824,
+    "cache_write": 0,
+    "total": 7027
+  },
+  {
+    "session": "ses_e85799a95fferGDo2cJlyFItm5",
+    "message": "msg_17a867859001mZUTeZMAJ0YJF3",
+    "agent": "build",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "tool-calls",
+    "input": 3380,
+    "output": 80,
+    "reasoning": 247,
+    "cache_read": 6880,
+    "cache_write": 0,
+    "total": 10587
+  },
+  {
+    "session": "ses_e85799a95fferGDo2cJlyFItm5",
+    "message": "msg_17a868a15001qZNWHLS02tQWKo",
+    "agent": "build",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "tool-calls",
+    "input": 370,
+    "output": 158,
+    "reasoning": 34,
+    "cache_read": 10240,
+    "cache_write": 0,
+    "total": 10802
+  },
+  {
+    "session": "ses_e85799a95fferGDo2cJlyFItm5",
+    "message": "msg_17a869345001fSaw7dI1mwfY1K",
+    "agent": "build",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "tool-calls",
+    "input": 479,
+    "output": 283,
+    "reasoning": 499,
+    "cache_read": 10592,
+    "cache_write": 0,
+    "total": 11853
+  },
+  {
+    "session": "ses_e85799a95fferGDo2cJlyFItm5",
+    "message": "msg_17a86b2e5001olWwySGb35fOW2",
+    "agent": "build",
+    "model": {
+      "id": "qwen-3.8-nf-splash",
+      "providerID": "omlx",
+      "variant": "default"
+    },
+    "finish": "stop",
+    "input": 1163,
+    "output": 726,
+    "reasoning": 120,
+    "cache_read": 11040,
+    "cache_write": 0,
+    "total": 13049
+  },
+  {
+    "session": "ses_e857928c7ffeklwpbI5VhFtO3g",
+    "message": "msg_17a86d7cf001bERYTZB7DPBDT6",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "tool-calls",
+    "input": 4851,
+    "output": 17,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0,
+    "total": 4868
+  },
+  {
+    "session": "ses_e857928c7ffeklwpbI5VhFtO3g",
+    "message": "msg_17a86e4a2001V33NV7dCmjFlr5",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "tool-calls",
+    "input": 165,
+    "output": 20,
+    "reasoning": 0,
+    "cache_read": 4736,
+    "cache_write": 0,
+    "total": 4921
+  },
+  {
+    "session": "ses_e857928c7ffeklwpbI5VhFtO3g",
+    "message": "msg_17a86f22b001tdIb3roWjng770",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "tool-calls",
+    "input": 200,
+    "output": 116,
+    "reasoning": 0,
+    "cache_read": 4736,
+    "cache_write": 0,
+    "total": 5052
+  },
+  {
+    "session": "ses_e857928c7ffeklwpbI5VhFtO3g",
+    "message": "msg_17a871135001YZlPQxbcF96g2G",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "tool-calls",
+    "input": 3007,
+    "output": 81,
+    "reasoning": 0,
+    "cache_read": 4864,
+    "cache_write": 0,
+    "total": 7952
+  },
+  {
+    "session": "ses_e857928c7ffeklwpbI5VhFtO3g",
+    "message": "msg_17a872a4d001a7E8c2LjFoBiHS",
+    "agent": "plan",
+    "model": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "medium"
+    },
+    "finish": "stop",
+    "input": 1079,
+    "output": 145,
+    "reasoning": 0,
+    "cache_read": 7808,
+    "cache_write": 0,
+    "total": 9032
+  }
+]

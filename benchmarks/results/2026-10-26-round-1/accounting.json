@@ -1,0 +1,218 @@
+{
+  "scope": "Current create-plan-and-implement continuation, including repository replacement. Earlier failed broad setup is retained separately, not hidden or double-counted.",
+  "snapshot_utc": "2026-10-26T23:43:45.454336+00:00",
+  "planner_source": "/Users/oleksii.naboichenko/.codex/sessions/2026/10/26/rollout-2026-10-26T18-49-50-01a17a67-e025-7371-bef9-3a883c8b823e.jsonl",
+  "continuation_start": "2026-10-26T23:17:17.903Z",
+  "latest_usage_timestamp": "2026-10-26T23:42:23.889Z",
+  "planner_before": {
+    "input_tokens": 4780660,
+    "cached_input_tokens": 4657536,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 23409,
+    "reasoning_output_tokens": 7642,
+    "total_tokens": 4804069
+  },
+  "planner_latest": {
+    "input_tokens": 15177240,
+    "cached_input_tokens": 15002368,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 68693,
+    "reasoning_output_tokens": 32363,
+    "total_tokens": 15245933
+  },
+  "planner_setup_supervision_reporting_cloud_delta_lower_bound": {
+    "input_tokens": 10396580,
+    "cached_input_tokens": 10344832,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 45284,
+    "reasoning_output_tokens": 24721,
+    "total_tokens": 10441864
+  },
+  "planner_disjoint_delta": {
+    "uncached_input": 51748,
+    "cached_input": 10344832,
+    "nonreasoning_output": 20563,
+    "reasoning_output": 24721
+  },
+  "codex_semantics": "Cached input is subset of input; reasoning output is subset of output. Total=input+output. Do not add either subset again. Native OpenCode fields below are disjoint instead.",
+  "setup_local_jobs": [
+    {
+      "job": "20261026T231850Z-native-minimal-config-fixture-9bb490",
+      "status": "ok",
+      "scope": "native-minimal-config-fixture",
+      "seconds": 58.06,
+      "worker_seconds": 57.35,
+      "local_tokens": 81493,
+      "token_usage": {
+        "input_tokens": 76066,
+        "output_tokens": 5427,
+        "cached_input_tokens": 61408,
+        "source": "turn.completed",
+        "sources": [
+          "turn.completed"
+        ],
+        "availability": "complete",
+        "complete": true,
+        "observed_records": 1,
+        "started_at": "2026-10-26T23:18:50.681877+00:00",
+        "finished_at": "2026-10-26T23:19:48.036668+00:00",
+        "elapsed_seconds": 57.35,
+        "coverage": {
+          "records": 1,
+          "field_observations": {
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cached_input_tokens": 1
+          },
+          "attempts_total": 1,
+          "attempts_with_usage": 1,
+          "attempts_with_duration": 1
+        }
+      },
+      "tool_calls": 8,
+      "model_request_count": null,
+      "pinned_local_api_model": "qwen-3.8-nf-splash",
+      "observed_models": [],
+      "routing_caveat": "Pinned launcher profile; missing observed model/usage fields remain unavailable.",
+      "final_decision": "accepted"
+    },
+    {
+      "job": "20261026T232941Z-portable-native-config-benchmark-package-1f1892",
+      "status": "ok",
+      "scope": "portable-native-config-benchmark-package",
+      "seconds": 245.2,
+      "worker_seconds": 243.39,
+      "local_tokens": 513507,
+      "token_usage": {
+        "input_tokens": 491292,
+        "output_tokens": 22215,
+        "cached_input_tokens": 447680,
+        "source": "turn.completed",
+        "sources": [
+          "turn.completed"
+        ],
+        "availability": "complete",
+        "complete": true,
+        "observed_records": 1,
+        "started_at": "2026-10-26T23:29:41.920531+00:00",
+        "finished_at": "2026-10-26T23:33:45.314021+00:00",
+        "elapsed_seconds": 243.39,
+        "coverage": {
+          "records": 1,
+          "field_observations": {
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cached_input_tokens": 1
+          },
+          "attempts_total": 1,
+          "attempts_with_usage": 1,
+          "attempts_with_duration": 1
+        }
+      },
+      "tool_calls": 22,
+      "model_request_count": null,
+      "pinned_local_api_model": "qwen-3.8-nf-splash",
+      "observed_models": [],
+      "routing_caveat": "Pinned launcher profile; missing observed model/usage fields remain unavailable.",
+      "final_decision": "rejected"
+    },
+    {
+      "job": "20261026T233556Z-materialize-small-native-package-bb13d3",
+      "status": "timeout",
+      "scope": "materialize-small-native-package",
+      "seconds": 149.67,
+      "worker_seconds": 148.75,
+      "local_tokens": null,
+      "token_usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "cached_input_tokens": null,
+        "source": null,
+        "sources": [],
+        "availability": "unavailable",
+        "complete": false,
+        "observed_records": 0,
+        "started_at": "2026-10-26T23:35:56.913597+00:00",
+        "finished_at": "2026-10-26T23:38:25.667070+00:00",
+        "elapsed_seconds": 148.75,
+        "coverage": {
+          "records": 1,
+          "field_observations": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached_input_tokens": 0
+          },
+          "attempts_total": 1,
+          "attempts_with_usage": 0,
+          "attempts_with_duration": 1
+        }
+      },
+      "tool_calls": 18,
+      "model_request_count": null,
+      "pinned_local_api_model": "qwen-3.8-nf-splash",
+      "observed_models": [],
+      "routing_caveat": "Pinned launcher profile; missing observed model/usage fields remain unavailable.",
+      "final_decision": "rejected"
+    },
+    {
+      "job": "20261026T234018Z-deliver-reviewed-native-package-ea3017",
+      "status": "ok",
+      "scope": "deliver-reviewed-native-package",
+      "seconds": 24.12,
+      "worker_seconds": 23.31,
+      "local_tokens": 31012,
+      "token_usage": {
+        "input_tokens": 28753,
+        "output_tokens": 2259,
+        "cached_input_tokens": 22272,
+        "source": "turn.completed",
+        "sources": [
+          "turn.completed"
+        ],
+        "availability": "complete",
+        "complete": true,
+        "observed_records": 1,
+        "started_at": "2026-10-26T23:40:19.058088+00:00",
+        "finished_at": "2026-10-26T23:40:42.373411+00:00",
+        "elapsed_seconds": 23.31,
+        "coverage": {
+          "records": 1,
+          "field_observations": {
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cached_input_tokens": 1
+          },
+          "attempts_total": 1,
+          "attempts_with_usage": 1,
+          "attempts_with_duration": 1
+        }
+      },
+      "tool_calls": 8,
+      "model_request_count": null,
+      "pinned_local_api_model": "qwen-3.8-nf-splash",
+      "observed_models": [],
+      "routing_caveat": "Pinned launcher profile; missing observed model/usage fields remain unavailable.",
+      "final_decision": "accepted"
+    }
+  ],
+  "known_setup_local_tokens_lower_bound": 626012,
+  "setup_local_coverage_complete": false,
+  "benchmark_identified_cloud": 149054,
+  "benchmark_identified_local": 141465,
+  "benchmark_unattributed_maintenance": 5060,
+  "current_all_in_cloud_lower_bound": 10590918,
+  "current_all_in_local_known_lower_bound": 767477,
+  "prior_rejected_setup_cloud_snapshot_lower_bound": 3541291,
+  "prior_rejected_setup_local_usage": null,
+  "earlier_history_scope": "Prior recovery campaign 9,577,634 lower-bound cloud and earlier failed native campaign are historical separate windows. Do not aggregate host windows without checking overlap.",
+  "quota_caveat": "Raw tokens including cached input, not measured subscription quota debits.",
+  "limitations": [
+    "In-turn snapshot excludes subsequent finalization and final reply; all-in totals are lower bounds.",
+    "One setup delivery job timed out and has unavailable local tokens; all costs from started jobs retained.",
+    "Repository-replacement proposal passed checks but was rejected for oversized review package; final small delivery accepted without changing review ceilings.",
+    "No extra live benchmark round or host corrective implementation occurred.",
+    "Native workflow failed; native cloud tokens per completed task and completed-task savings remain undefined."
+  ],
+  "whole_thread_all_in_cloud_lower_bound": 15394987,
+  "whole_thread_scope": "All measured Codex planner usage in this thread since its start, including the earlier failed setup, diagnosis and this continuation, plus identified OpenCode benchmark cloud tokens. This includes rather than adds the separately listed earlier snapshot. Unknown maintenance and subsequent turns excluded; lower bound."
+}

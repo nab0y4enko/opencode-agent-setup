@@ -1,0 +1,71 @@
+{
+  "accepted": true,
+  "autonomous": true,
+  "digest": "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+  "changed_paths": [
+    "ttl_cache.py"
+  ],
+  "untracked": [],
+  "frozen_inputs_unchanged": true,
+  "verdicts": [
+    {
+      "agent": "build",
+      "session": "ses_e857b00e6ffec2DQicoYpr2JcZ",
+      "marker": [
+        "PASS",
+        "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f"
+      ]
+    }
+  ],
+  "tokens": {
+    "cloud": {
+      "input": 9549,
+      "output": 863,
+      "reasoning": 112,
+      "cache_read": 33408,
+      "cache_write": 0,
+      "total": 43932
+    },
+    "local": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "total": 0
+    },
+    "unknown": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "total": 0
+    }
+  },
+  "maintenance_gaps": [
+    {
+      "session": "ses_e857b00e6ffec2DQicoYpr2JcZ",
+      "selected_model": "{\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"medium\"}",
+      "gap": 801,
+      "outcome": "succeeded"
+    }
+  ],
+  "assistant_calls": 6,
+  "tool_calls": 9,
+  "tool_errors": [],
+  "subagent_dispatches": [],
+  "actual_routes": [
+    {
+      "agent": "build",
+      "model": {
+        "id": "gpt-6.1-sol",
+        "providerID": "openai",
+        "variant": "medium"
+      }
+    }
+  ],
+  "elapsed_seconds": 53.56782674789429,
+  "timed_out": false,
+  "cloud_tokens_per_completed_task": 43932
+}

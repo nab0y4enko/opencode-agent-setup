@@ -1,0 +1,8 @@
+{
+  "native_file_substitution_shape_pass": true,
+  "raw_evidence_byte_identity_pass": true,
+  "measured_config_hash_pass": true,
+  "secret_file_absent": true,
+  "parent_changes": "Documentation references/command comment and permission scope wording corrected; immutable data copied; no code/test changes to accepted worker output.",
+  "installed_config_changed_during_packaging": false
+}

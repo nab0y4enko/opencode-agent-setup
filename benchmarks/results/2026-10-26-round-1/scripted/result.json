@@ -1,0 +1,113 @@
+{
+  "accepted": true,
+  "autonomous": true,
+  "digest": "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+  "changed_paths": [
+    "ttl_cache.py"
+  ],
+  "untracked": [],
+  "frozen_inputs_unchanged": true,
+  "verdicts": [
+    {
+      "agent": "build",
+      "session": "ses_e85799a95fferGDo2cJlyFItm5",
+      "marker": [
+        "PASS",
+        "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f"
+      ]
+    },
+    {
+      "agent": "plan",
+      "session": "ses_e857928c7ffeklwpbI5VhFtO3g",
+      "marker": [
+        "PASS",
+        "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f"
+      ]
+    }
+  ],
+  "tokens": {
+    "cloud": {
+      "input": 17287,
+      "output": 857,
+      "reasoning": 11,
+      "cache_read": 32000,
+      "cache_write": 0,
+      "total": 50155
+    },
+    "local": {
+      "input": 18451,
+      "output": 2009,
+      "reasoning": 1057,
+      "cache_read": 59072,
+      "cache_write": 0,
+      "total": 80589
+    },
+    "unknown": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "total": 0
+    }
+  },
+  "maintenance_gaps": [
+    {
+      "session": "ses_e857a2fe2ffeb7cUpYnu1PoZyQ",
+      "selected_model": "{\"id\":\"qwen-3.8-nf-splash\",\"providerID\":\"omlx\"}",
+      "gap": 811,
+      "outcome": "succeeded"
+    },
+    {
+      "session": "ses_e857a0274ffekkr3L58odS6O3O",
+      "selected_model": "{\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"medium\"}",
+      "gap": 824,
+      "outcome": "succeeded"
+    },
+    {
+      "session": "ses_e85799a95fferGDo2cJlyFItm5",
+      "selected_model": "{\"id\":\"qwen-3.8-nf-splash\",\"providerID\":\"omlx\"}",
+      "gap": 823,
+      "outcome": "succeeded"
+    },
+    {
+      "session": "ses_e857928c7ffeklwpbI5VhFtO3g",
+      "selected_model": "{\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"medium\"}",
+      "gap": 837,
+      "outcome": "succeeded"
+    }
+  ],
+  "assistant_calls": 17,
+  "tool_calls": 29,
+  "tool_errors": [],
+  "subagent_dispatches": [],
+  "actual_routes": [
+    {
+      "agent": "build",
+      "model": {
+        "id": "qwen-3.8-nf-splash",
+        "providerID": "omlx",
+        "variant": "default"
+      }
+    },
+    {
+      "agent": "plan",
+      "model": {
+        "id": "gpt-6.1-sol",
+        "providerID": "openai",
+        "variant": "medium"
+      }
+    },
+    {
+      "agent": "plan",
+      "model": {
+        "id": "qwen-3.8-nf-splash",
+        "providerID": "omlx",
+        "variant": "default"
+      }
+    }
+  ],
+  "elapsed_seconds": 97.86451768875122,
+  "timed_out": false,
+  "cloud_tokens_per_completed_task": 50155
+}

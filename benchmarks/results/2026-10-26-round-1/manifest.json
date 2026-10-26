@@ -1,0 +1,66 @@
+{
+  "frozen_utc": "2026-10-26T23:21:01.668405+00:00",
+  "opencode_version": "opencode v2.1.4",
+  "models": {
+    "cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/qwen-3.8-nf-splash"
+  },
+  "wall_clock_seconds_per_arm": 180,
+  "attempts": {
+    "initial": 1,
+    "repair": 1
+  },
+  "fixture_sha256": {
+    "README.md": "c524dc1052954fe15e29661c4902ba5019ec630b122e705a545d6ef2aac71399",
+    "test_ttl_cache.py": "4b527fe897668e3479535395071adabe2532b178aa054e63ac00780cff0b96f0",
+    "ttl_cache.py": "7151e792621f90f57cf88a3065aa6a755bacd23f0e9bf98556ede8759ff650e2"
+  },
+  "config_sha256": "52a4ca455b30a67e162b1ffbefa506a0748c7a0736cadb9335a969e9c74118c1",
+  "check": [
+    "python3",
+    "-m",
+    "unittest",
+    "-v"
+  ],
+  "allowed_changed": [
+    "ttl_cache.py"
+  ],
+  "sequence": [
+    "direct",
+    "scripted",
+    "native"
+  ],
+  "task": "Fix the TTLCache expiry behavior documented in README.md. Change only ttl_cache.py. Preserve all twelve existing test cases and all other behavior. Do not edit README.md or test_ttl_cache.py, add files, install dependencies, commit, push, change configuration, or launch other model commands. Required checks: python3 -m unittest -v from the repo root. Capture full logs outside the repo. Inspect relevant source/tests and perform substantive semantic review, not just test acceptance. Use git diff --binary HEAD as the complete tracked diff; ensure git ls-files --others --exclude-standard reports no source files; hash that exact diff using shasum -a 256. End with VERDICT: PASS <actual diff sha256> only after checks and semantic review accept the exact current patch, otherwise VERDICT: FAIL <sha256>. One initial implementation and at most ONE repair; no repeated model status polling. Never weaken a check or bypass a denied command. Stop visibly on failure. This is a disposable LOCAL ONLY fixture; ignore any unrelated completion default requiring push.",
+  "arms": {
+    "direct": {
+      "repo": "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/direct/opencode/repo",
+      "base": "b84c2677ef18d5fe00ab66848fbf51f975396fa6",
+      "prompt_sha256": {
+        "03-implement": "5cb59eb625c4887a040a9521c8ea13946983ba867ba0ffaf33f5c57b0fb8a7d4"
+      },
+      "phase_launcher_sha256": "85f9251a33648765df8ac6c8bdd96b3584e04745d6c657b3ebd7e6039338ea21"
+    },
+    "scripted": {
+      "repo": "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/scripted/opencode/repo",
+      "base": "b84c2677ef18d5fe00ab66848fbf51f975396fa6",
+      "prompt_sha256": {
+        "01-discover": "aeab608a04799f76570ce8800bf935027fd13bd1bb60c50d17bd377078c1580d",
+        "02-plan": "d428b5a9ec2acfb81ba8363d9b95ae105a4f4a1388f930dc641a42eae766fcb5",
+        "03-implement": "0f8a656c9642d4f76f73a56432a9d65b122a42a4b16e9022f12e025f2b20267c",
+        "04-repair": "66c9542c7b1ad7780c8c76b61ca967b315918cb55fb6163d863d1138e45b461c",
+        "05-review": "e5432588ab5477cb041dd8ded94d940b42e5790467ea8af85ca73ae13d7ddc1e"
+      },
+      "phase_launcher_sha256": "85f9251a33648765df8ac6c8bdd96b3584e04745d6c657b3ebd7e6039338ea21"
+    },
+    "native": {
+      "repo": "/Users/oleksii.naboichenko/benchmark-evidence/opencode-minimal-native-20261026T231850Z/native/opencode/repo",
+      "base": "b84c2677ef18d5fe00ab66848fbf51f975396fa6",
+      "prompt_sha256": {
+        "01-hybrid": "727ec86eb5741983ce2f73872916506a83a790c4d1896903be3179e93daf3d57"
+      },
+      "phase_launcher_sha256": "85f9251a33648765df8ac6c8bdd96b3584e04745d6c657b3ebd7e6039338ea21"
+    }
+  },
+  "threshold": "native CLOUD tokens / direct CLOUD tokens <=0.30 for accepted tasks; failed attempts charged; never use cloud/combined share",
+  "host_intervention": "Any post-start correction or solution hint invalidates autonomous success; deterministic checks/accounting/timeouts are instrumentation."
+}

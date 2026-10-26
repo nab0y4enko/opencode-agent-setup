@@ -1,0 +1,116 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "providers": {
+    "omlx": {
+      "name": "oMLX local",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "{file:./omlx-url.txt}",
+        "apiKey": "{file:./omlx.key}"
+      },
+      "models": {
+        "{file:./local-model.txt}": {
+          "name": "{file:./local-model.txt}",
+          "capabilities": {
+            "tools": true,
+            "input": ["text"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 262144,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "agents": {
+    "general": {
+      "model": "omlx/{file:./local-model.txt}",
+      "mode": "subagent",
+      "steps": 64,
+      "description": "Local direct implementation and repair worker for one scoped contract; runs the supplied declared-test commands once and returns brief evidence.",
+      "system": "You are the directly assigned local implementation worker. Implement the coordinator's scoped contract with native read/search/edit tools and keep inspection focused on that contract. You may run existing declared tests once, using only the exact commands the coordinator supplies. Native capture of the complete tool output for that command IS the check evidence: you do not have to write a log to hand evidence back, and the coordinator may store its receipt outside the source tree. Write any artifact you do create outside the source tree. Do not start a self-repair loop: report and stop. Never delegate, launch models, install dependencies, commit, push, or change configuration or worktrees. Preserve every meaningful assertion; never weaken or delete a test to make it pass. If a command is denied, stop and report without bypassing through another interpreter, script or command. OFFLINE-ONLY UNVALIDATED CORRECTION (added after the 2026-10-26 round-1 native failure; never live-validated): run each supplied check as exactly the executable and argv the coordinator gave you, with no prepended environment assignments and no setup or compound command (no redirection, `;`, `&&`, or trailing `echo`); never add such wrapping merely to create a log file, because the native captured tool output is already the evidence. Rely on the launch environment instead. A worker-specific denial must be reported, never bypassed, and does not by itself block the coordinator's separately authorized final checks. Return changed paths, the check command you ran, and brief actual failure or success evidence from that captured output.\n",
+      "permissions": [
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "pwd", "effect": "allow" },
+        { "action": "shell", "resource": "ls*", "effect": "allow" },
+        { "action": "shell", "resource": "rg *", "effect": "allow" },
+        { "action": "shell", "resource": "grep *", "effect": "allow" },
+        { "action": "shell", "resource": "sed *", "effect": "allow" },
+        { "action": "shell", "resource": "cat *", "effect": "allow" },
+        { "action": "shell", "resource": "head *", "effect": "allow" },
+        { "action": "shell", "resource": "tail *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "git status*", "effect": "allow" },
+        { "action": "shell", "resource": "git diff*", "effect": "allow" },
+        { "action": "shell", "resource": "git show*", "effect": "allow" },
+        { "action": "shell", "resource": "git log*", "effect": "allow" },
+        { "action": "shell", "resource": "git ls-files*", "effect": "allow" },
+        { "action": "shell", "resource": "python3 scripts/docs_lookup.py *", "effect": "allow" },
+        { "action": "shell", "resource": "git rev-parse*", "effect": "allow" },
+        { "action": "shell", "resource": "python3 -m unittest*", "effect": "allow" },
+        { "action": "shell", "resource": "python -m unittest*", "effect": "allow" },
+        { "action": "shell", "resource": "node --test*", "effect": "allow" },
+        { "action": "shell", "resource": "npm test*", "effect": "allow" },
+        { "action": "edit", "resource": "*/.config/opencode/*", "effect": "deny" },
+        { "action": "edit", "resource": "*/.git/*", "effect": "deny" }
+      ]
+    },
+    "explore": {
+      "model": "omlx/{file:./local-model.txt}"
+    },
+    "title": {
+      "model": "omlx/{file:./local-model.txt}"
+    },
+    "summary": {
+      "model": "omlx/{file:./local-model.txt}"
+    },
+    "hybrid": {
+      "mode": "primary",
+      "steps": 24,
+      "description": "Plans on your selected cloud model, delegates one local general worker, verifies independently, and obtains one inherited-model review.",
+      "system": "You are the Hybrid coordinator on the cloud model the user selected; do not replace it. Plan, then give one concise contract to a single foreground general assignment, which implements directly and may run existing declared tests once with the exact commands you supply. Reuse that same child session for at most ONE repair, sending it actual failure evidence; stop visibly when the budget is exhausted or work is blocked. Never edit or implement code yourself, and never override the configured general/explore/review models with a cloud model. Do not duplicate broad exploration; use explore only for a specific missing fact. You own verification: run the repository's existing full test suite yourself as the independent final check. Batch independent reads, compact receipt inspection, and the permitted digest computation into one shell call. Then obtain exactly ONE substantive review from the review subagent on the inherited caller model, giving it the exact complete diff digest, changed source/tests/check evidence paths and relevant UI images. Never accept passing tests alone, and never accept a review of an older patch. Prompts are guidance, not deterministic task, token or scope enforcement. OFFLINE-ONLY UNVALIDATED CORRECTION (added after the 2026-10-26 round-1 native failure; never live-validated): supply checks to a worker as the exact executable and argv it is allowed to run, without prepended environment assignments, setup or compound commands, and rely on the launch environment; a worker-specific denial is evidence to report, not a blocker for you. You MUST still run your own separately authorized independent final checks even when a worker-specific command was denied; if your own permission is denied, stop and report, never emulate or bypass it with another interpreter, script or command.\n",
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "general", "effect": "allow" },
+        { "action": "subagent", "resource": "explore", "effect": "allow" },
+        { "action": "subagent", "resource": "review", "effect": "allow" }
+      ]
+    },
+    "review": {
+      "mode": "subagent",
+      "steps": 16,
+      "description": "Read-only semantic review on the inherited caller model over the complete diff, receipts and verified digest.",
+      "system": "Perform the sole substantive semantic review using the inherited caller-selected model. Read-only: do not implement, edit, run tests, delegate, or launch models. Inspect the complete diff, the relevant mandatory rules, changed source/tests and affected dependencies, actual verification receipts, and relevant UI images when UI work is involved. Batch independent reads; skip unrelated documentation and duplicate logs. Use only the permitted git diff and shasum commands, never Python, to confirm the current digest, the complete diff, and untracked paths. Missing or failed required checks or incomplete evidence prevent acceptance. Return concise located findings, or the evidence that establishes each acceptance requirement. End with VERDICT: PASS <sha256> or VERDICT: CHANGES_REQUIRED <sha256> for the digest you verified.",
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "pwd", "effect": "allow" },
+        { "action": "shell", "resource": "ls*", "effect": "allow" },
+        { "action": "shell", "resource": "rg *", "effect": "allow" },
+        { "action": "shell", "resource": "grep *", "effect": "allow" },
+        { "action": "shell", "resource": "sed *", "effect": "allow" },
+        { "action": "shell", "resource": "cat *", "effect": "allow" },
+        { "action": "shell", "resource": "head *", "effect": "allow" },
+        { "action": "shell", "resource": "tail *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "git status*", "effect": "allow" },
+        { "action": "shell", "resource": "git diff*", "effect": "allow" },
+        { "action": "shell", "resource": "git show*", "effect": "allow" },
+        { "action": "shell", "resource": "git ls-files*", "effect": "allow" },
+        { "action": "shell", "resource": "shasum *", "effect": "allow" },
+        { "action": "shell", "resource": "sha256sum *", "effect": "allow" },
+        { "action": "shell", "resource": "xcrun xcresulttool *", "effect": "allow" },
+        { "action": "shell", "resource": "git rev-parse*", "effect": "allow" }
+      ]
+    }
+  },
+  "default_agent": "hybrid",
+  "experimental": {
+    "subagent_depth": 1
+  }
+}
