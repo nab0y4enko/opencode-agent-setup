@@ -1,0 +1,182 @@
+{
+  "result": "FAILED: correct model routing, task incomplete",
+  "same_base": "4f2e5c3aed06d89b3bdd166fbc9fc5268b67d3f7",
+  "previous_scripted": {
+    "cloud_tokens": 263216,
+    "local_tokens": 3906164,
+    "completed_tasks": 1,
+    "repairs": 2,
+    "active_seconds": 2847.461,
+    "scope": "Prior scripted OpenCode arm including planning and both reviews; external Codex host overhead excluded; model phase and check times summed."
+  },
+  "default_hybrid": {
+    "cloud_tokens": 333496,
+    "local_tokens": 5230710,
+    "completed_tasks": 0,
+    "repairs": 1,
+    "active_seconds": 2400.152552843094,
+    "timeout_seconds": 2400,
+    "post_timeout_host_check_seconds": 197.69705200195312,
+    "cloud_tokens_per_completed_task": null,
+    "scope": "Entire OpenCode root and descendant session tree, including discovery, planning, implementation, failure review, repair dispatch and interrupted repair. Final Hybrid review never reached."
+  },
+  "cloud_raw_token_change_percent": 26.70050452860009,
+  "local_raw_token_change_percent": 33.90912414327714,
+  "cloud_breakdown": {
+    "input": 48923,
+    "output": 2304,
+    "reasoning": 157,
+    "cache_read": 282112,
+    "cache_write": 0,
+    "total": 333496
+  },
+  "local_breakdown": {
+    "input": 278212,
+    "output": 33477,
+    "reasoning": 66477,
+    "cache_read": 4852544,
+    "cache_write": 0,
+    "total": 5230710
+  },
+  "cloud_phases": {
+    "planning_and_setup": 75277,
+    "verification_failed_draft_review_and_repair_dispatch": 258219,
+    "final_review": 0
+  },
+  "local_phases": {
+    "discovery": 276071,
+    "initial_implementation": 2092044,
+    "repair_including_diagnostics": 2862595
+  },
+  "external_codex_host_snapshot": {
+    "source": "/Users/oleksii.naboichenko/.codex/sessions/2026/10/25/rollout-2026-10-25T19-07-52-01a17552-0678-75a3-8cd7-379ea8d95c79.jsonl",
+    "start_line": 8438,
+    "start_timestamp": "2026-10-26T20:47:27.648Z",
+    "snapshot_time": "2026-10-26T21:38:00.499620+00:00",
+    "distinct_usage_updates": 106,
+    "before": {
+      "input_tokens": 164331669,
+      "cached_input_tokens": 162273024,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 592077,
+      "reasoning_output_tokens": 318976,
+      "total_tokens": 164923746
+    },
+    "latest": {
+      "input_tokens": 176928714,
+      "cached_input_tokens": 174807936,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 632960,
+      "reasoning_output_tokens": 336921,
+      "total_tokens": 177561674
+    },
+    "delta": {
+      "input_tokens": 12597045,
+      "cached_input_tokens": 12534912,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 40883,
+      "reasoning_output_tokens": 17945,
+      "total_tokens": 12637928
+    },
+    "scope": "External Codex orchestration/setup/oversight/audit/report preparation. Snapshot lower bound; excludes subsequent responses and final answer. Never add cached or reasoning again to total."
+  },
+  "all_current_cloud_tokens_lower_bound": 12971424,
+  "all_in_comparison_available": false,
+  "limitations": [
+    "One repair and 40-minute deadline for new default versus two authorized repairs and 47.5 active minutes for old scripted run.",
+    "No same-task direct Sol-only baseline; no 30-percent-of-origin claim possible.",
+    "Historical shared Codex host overhead cannot be assigned precisely to old OpenCode arm. Current host overhead is measured separately and is a lower-bound snapshot excluding subsequent reporting and the final reply.",
+    "Configuration file reverted during the run at 2026-10-26T21:22:59.081546+00:00; writer unknown. Actual model records preserve intended routing, but configuration was not stable throughout.",
+    "Raw cached input, uncached input and output totals are not exact ChatGPT subscription quota deductions."
+  ],
+  "acceptance": {
+    "accepted": false,
+    "outcome": "FAILED_TIMEOUT_AND_UI_CHECKS",
+    "patch_sha256": "c8e9bdca694635c9800ed3a913b29e8806d1b903ed43a3c01bbc2deefbfd9b99",
+    "reason": "40-minute native workflow deadline exhausted during one local repair; no final Hybrid semantic approval. Independent frozen-draft checks fail 6 of 10 UI tests.",
+    "checks_receipt": "checks-post-timeout/receipt.json",
+    "unit": {
+      "passed": 4,
+      "failed": 0
+    },
+    "ui": {
+      "passed": 4,
+      "failed": 6,
+      "skipped": 0,
+      "failures": [
+        {
+          "failureText": "XCTAssertEqual failed: (\"XCTWaiterResult(rawValue: 2)\") is not equal to (\"XCTWaiterResult(rawValue: 1)\")",
+          "targetName": "TiviaryNativeUITests",
+          "testIdentifier": 1,
+          "testIdentifierString": "NativeNavigationUITests/testAllMediaDetailsAndFocusFirstBack()",
+          "testIdentifierURL": "test://com.apple.xcode/Tiviary/TiviaryNativeUITests/NativeNavigationUITests/testAllMediaDetailsAndFocusFirstBack",
+          "testName": "testAllMediaDetailsAndFocusFirstBack()"
+        },
+        {
+          "failureText": "XCTAssertEqual failed: (\"XCTWaiterResult(rawValue: 2)\") is not equal to (\"XCTWaiterResult(rawValue: 1)\")",
+          "targetName": "TiviaryNativeUITests",
+          "testIdentifier": 2,
+          "testIdentifierString": "NativeNavigationUITests/testDiagGridGeometry()",
+          "testIdentifierURL": "test://com.apple.xcode/Tiviary/TiviaryNativeUITests/NativeNavigationUITests/testDiagGridGeometry",
+          "testName": "testDiagGridGeometry()"
+        },
+        {
+          "failureText": "XCTAssertEqual failed: (\"XCTWaiterResult(rawValue: 2)\") is not equal to (\"XCTWaiterResult(rawValue: 1)\")",
+          "targetName": "TiviaryNativeUITests",
+          "testIdentifier": 4,
+          "testIdentifierString": "NativeNavigationUITests/testFiveTabsEmptyScreensLandingPushesSeriesAndRetainsHistory()",
+          "testIdentifierURL": "test://com.apple.xcode/Tiviary/TiviaryNativeUITests/NativeNavigationUITests/testFiveTabsEmptyScreensLandingPushesSeriesAndRetainsHistory",
+          "testName": "testFiveTabsEmptyScreensLandingPushesSeriesAndRetainsHistory()"
+        },
+        {
+          "failureText": "XCTAssertEqual failed: (\"XCTWaiterResult(rawValue: 2)\") is not equal to (\"XCTWaiterResult(rawValue: 1)\")",
+          "targetName": "TiviaryNativeUITests",
+          "testIdentifier": 6,
+          "testIdentifierString": "NativeNavigationUITests/testLiveCollectionVerticalMediaScrollsAndLastCardClearsPanel()",
+          "testIdentifierURL": "test://com.apple.xcode/Tiviary/TiviaryNativeUITests/NativeNavigationUITests/testLiveCollectionVerticalMediaScrollsAndLastCardClearsPanel",
+          "testName": "testLiveCollectionVerticalMediaScrollsAndLastCardClearsPanel()"
+        },
+        {
+          "failureText": "XCTAssertEqual failed: (\"XCTWaiterResult(rawValue: 2)\") is not equal to (\"XCTWaiterResult(rawValue: 1)\")",
+          "targetName": "TiviaryNativeUITests",
+          "testIdentifier": 7,
+          "testIdentifierString": "NativeNavigationUITests/testMovieBackRestoresSelectedOffscreenCategoryThenPopsAndPanelClearsLastCard()",
+          "testIdentifierURL": "test://com.apple.xcode/Tiviary/TiviaryNativeUITests/NativeNavigationUITests/testMovieBackRestoresSelectedOffscreenCategoryThenPopsAndPanelClearsLastCard",
+          "testName": "testMovieBackRestoresSelectedOffscreenCategoryThenPopsAndPanelClearsLastCard()"
+        },
+        {
+          "failureText": "XCTAssertEqual failed: (\"XCTWaiterResult(rawValue: 2)\") is not equal to (\"XCTWaiterResult(rawValue: 1)\")",
+          "targetName": "TiviaryNativeUITests",
+          "testIdentifier": 10,
+          "testIdentifierString": "NativeNavigationUITests/testSeriesCollectionVerticalMediaScrollsAndLastCardClearsPanel()",
+          "testIdentifierURL": "test://com.apple.xcode/Tiviary/TiviaryNativeUITests/NativeNavigationUITests/testSeriesCollectionVerticalMediaScrollsAndLastCardClearsPanel",
+          "testName": "testSeriesCollectionVerticalMediaScrollsAndLastCardClearsPanel()"
+        }
+      ]
+    },
+    "source_hashes_match_checked_draft": true,
+    "cards_component_unchanged": true,
+    "checker_unchanged": true,
+    "model_routing_verified": true,
+    "note": "Two diagnostic tests remain in the interrupted draft; no assertions or diagnostic tests were removed by the host."
+  },
+  "integration": {
+    "branch": "codex/categories-opencode-native-hybrid",
+    "commit": "56ebd1b58ded30df3ad7fe8baba8182af84a916d",
+    "remote_verified": "56ebd1b58ded30df3ad7fe8baba8182af84a916d",
+    "accepted": false,
+    "purpose": "Preserved failed benchmark draft; not merged"
+  },
+  "cleanup": {
+    "temporary_checkout_removed": true,
+    "recovery": {
+      "commit": "56ebd1b58ded30df3ad7fe8baba8182af84a916d",
+      "recovery_ref": "refs/heads/recovery/categories-opencode-native-hybrid",
+      "bundle_verified": true,
+      "archive_files_verified": 12772,
+      "remote_verified": "56ebd1b58ded30df3ad7fe8baba8182af84a916d",
+      "time": 1793050514.104086
+    },
+    "unrelated_primary_worktree_preserved": true
+  }
+}

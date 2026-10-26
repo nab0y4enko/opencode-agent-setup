@@ -1,0 +1,2146 @@
+[
+  {
+    "phase": "01-discover",
+    "exit_code": 0,
+    "seconds": 87.16234707832336,
+    "sessions": [
+      {
+        "native": {
+          "id": "ses_e867edd44ffeldaUURS1hwB6Si",
+          "model": "{\"id\":\"qwen-3.8-nf-splash\",\"providerID\":\"omlx\"}",
+          "parent_id": null,
+          "tokens_input": 23733,
+          "tokens_output": 2333,
+          "tokens_reasoning": 3861,
+          "tokens_cache_read": 94880,
+          "tokens_cache_write": 0
+        },
+        "assistant_usage": [
+          {
+            "id": "msg_17981230d001phRcXtN5qBI25K",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 3680,
+              "output": 84,
+              "reasoning": 57,
+              "cache": {
+                "read": 4096,
+                "write": 0
+              }
+            },
+            "total": 7917
+          },
+          {
+            "id": "msg_179813990001gJfUzZ6dqoOJUv",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 735,
+              "output": 136,
+              "reasoning": 46,
+              "cache": {
+                "read": 7744,
+                "write": 0
+              }
+            },
+            "total": 8661
+          },
+          {
+            "id": "msg_179814567001go0x0TaT8E35dT",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4258,
+              "output": 134,
+              "reasoning": 48,
+              "cache": {
+                "read": 8448,
+                "write": 0
+              }
+            },
+            "total": 12888
+          },
+          {
+            "id": "msg_179815248001TAKfOqSZR71OWg",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 3391,
+              "output": 107,
+              "reasoning": 19,
+              "cache": {
+                "read": 12672,
+                "write": 0
+              }
+            },
+            "total": 16189
+          },
+          {
+            "id": "msg_179815c9b001rwZpB8lvmxHu5x",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4765,
+              "output": 68,
+              "reasoning": 961,
+              "cache": {
+                "read": 16032,
+                "write": 0
+              }
+            },
+            "total": 21826
+          },
+          {
+            "id": "msg_17981932c001altX33fMtcj3ML",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4384,
+              "output": 190,
+              "reasoning": 108,
+              "cache": {
+                "read": 20768,
+                "write": 0
+              }
+            },
+            "total": 25450
+          },
+          {
+            "id": "msg_17981a867001II1u7EZp3bC9oq",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1269,
+              "output": 1602,
+              "reasoning": 2496,
+              "cache": {
+                "read": 25120,
+                "write": 0
+              }
+            },
+            "total": 30487
+          }
+        ],
+        "native_total": 124807,
+        "maintenance_gap": 1389
+      }
+    ],
+    "cloud": 0,
+    "local": 123418,
+    "unattributed": 1389
+  },
+  {
+    "phase": "02-plan",
+    "exit_code": 0,
+    "seconds": 52.875283002853394,
+    "sessions": [
+      {
+        "native": {
+          "id": "ses_e867d36afffeR9tZdMfSDyC3VJ",
+          "model": "{\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"medium\"}",
+          "parent_id": null,
+          "tokens_input": 29405,
+          "tokens_output": 1228,
+          "tokens_reasoning": 178,
+          "tokens_cache_read": 58496,
+          "tokens_cache_write": 0
+        },
+        "assistant_usage": [
+          {
+            "id": "msg_17982c9a1001wCkS7B9L2Jy1yt",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 13085,
+              "output": 22,
+              "reasoning": 0,
+              "cache": {
+                "read": 0,
+                "write": 0
+              }
+            },
+            "total": 13107
+          },
+          {
+            "id": "msg_17982d6c9001GDXA4RKHec0sAw",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 549,
+              "output": 78,
+              "reasoning": 0,
+              "cache": {
+                "read": 12928,
+                "write": 0
+              }
+            },
+            "total": 13555
+          },
+          {
+            "id": "msg_17982f035001GxDpivrAWW29UE",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 1239,
+              "output": 117,
+              "reasoning": 17,
+              "cache": {
+                "read": 13440,
+                "write": 0
+              }
+            },
+            "total": 14813
+          },
+          {
+            "id": "msg_179830a06001wC75bQ9nl4BMcn",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 2804,
+              "output": 29,
+              "reasoning": 0,
+              "cache": {
+                "read": 14720,
+                "write": 0
+              }
+            },
+            "total": 17553
+          },
+          {
+            "id": "msg_179831801001kiCHkZvDtrbd5q",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 3494,
+              "output": 969,
+              "reasoning": 0,
+              "cache": {
+                "read": 17408,
+                "write": 0
+              }
+            },
+            "total": 21871
+          }
+        ],
+        "native_total": 89307,
+        "maintenance_gap": 8408
+      }
+    ],
+    "cloud": 80899,
+    "local": 0,
+    "unattributed": 8408
+  },
+  {
+    "phase": "03-implement",
+    "exit_code": 0,
+    "seconds": 426.85820508003235,
+    "sessions": [
+      {
+        "native": {
+          "id": "ses_e867bf6d7ffeemexQe7HiBLtXX",
+          "model": "{\"id\":\"qwen-3.8-nf-splash\",\"providerID\":\"omlx\"}",
+          "parent_id": null,
+          "tokens_input": 69694,
+          "tokens_output": 12452,
+          "tokens_reasoning": 22027,
+          "tokens_cache_read": 1890464,
+          "tokens_cache_write": 0
+        },
+        "assistant_usage": [
+          {
+            "id": "msg_1798409bf001oz0qjzmHbQvQqe",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4610,
+              "output": 194,
+              "reasoning": 159,
+              "cache": {
+                "read": 4096,
+                "write": 0
+              }
+            },
+            "total": 9059
+          },
+          {
+            "id": "msg_1798427df00118Wxx1ANl5zPOC",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 548,
+              "output": 222,
+              "reasoning": 16,
+              "cache": {
+                "read": 8672,
+                "write": 0
+              }
+            },
+            "total": 9458
+          },
+          {
+            "id": "msg_179842eaf001LNmMRT6wP7eDHD",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2076,
+              "output": 146,
+              "reasoning": 44,
+              "cache": {
+                "read": 9184,
+                "write": 0
+              }
+            },
+            "total": 11450
+          },
+          {
+            "id": "msg_1798438a4001X0pFXuYtI5DiPl",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2749,
+              "output": 78,
+              "reasoning": 21,
+              "cache": {
+                "read": 11232,
+                "write": 0
+              }
+            },
+            "total": 14080
+          },
+          {
+            "id": "msg_1798442f5001PEYKvx1i24XfGD",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 931,
+              "output": 79,
+              "reasoning": 35,
+              "cache": {
+                "read": 13952,
+                "write": 0
+              }
+            },
+            "total": 14997
+          },
+          {
+            "id": "msg_179844960001Lh4juLC42dCBFN",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 3103,
+              "output": 174,
+              "reasoning": 58,
+              "cache": {
+                "read": 14848,
+                "write": 0
+              }
+            },
+            "total": 18183
+          },
+          {
+            "id": "msg_179845933001UC0mLNXea6ik3a",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 3802,
+              "output": 115,
+              "reasoning": 50,
+              "cache": {
+                "read": 17920,
+                "write": 0
+              }
+            },
+            "total": 21887
+          },
+          {
+            "id": "msg_179846816001cCHVZakXuF1jKE",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1484,
+              "output": 148,
+              "reasoning": 38,
+              "cache": {
+                "read": 21696,
+                "write": 0
+              }
+            },
+            "total": 23366
+          },
+          {
+            "id": "msg_17984710e00128CPL2pxn1gUSZ",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1910,
+              "output": 31,
+              "reasoning": 54,
+              "cache": {
+                "read": 23168,
+                "write": 0
+              }
+            },
+            "total": 25163
+          },
+          {
+            "id": "msg_1798478b200124Ct6QqtNS01Ea",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 495,
+              "output": 4,
+              "reasoning": 8188,
+              "cache": {
+                "read": 25056,
+                "write": 0
+              }
+            },
+            "total": 33743
+          },
+          {
+            "id": "msg_179860bfe0017O91wLkfMidsHp",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 8250,
+              "output": 624,
+              "reasoning": 265,
+              "cache": {
+                "read": 25536,
+                "write": 0
+              }
+            },
+            "total": 34675
+          },
+          {
+            "id": "msg_179863e850011CX4dEJkFs85bw",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 944,
+              "output": 372,
+              "reasoning": 245,
+              "cache": {
+                "read": 33760,
+                "write": 0
+              }
+            },
+            "total": 35321
+          },
+          {
+            "id": "msg_17986569b001pO8mPL2nN6az23",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 664,
+              "output": 483,
+              "reasoning": 149,
+              "cache": {
+                "read": 34688,
+                "write": 0
+              }
+            },
+            "total": 35984
+          },
+          {
+            "id": "msg_179866ced001U58HXqOx0keyBY",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 686,
+              "output": 735,
+              "reasoning": 323,
+              "cache": {
+                "read": 35328,
+                "write": 0
+              }
+            },
+            "total": 37072
+          },
+          {
+            "id": "msg_1798691d7001Khh6hvteVf5XLT",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1105,
+              "output": 460,
+              "reasoning": 41,
+              "cache": {
+                "read": 36000,
+                "write": 0
+              }
+            },
+            "total": 37606
+          },
+          {
+            "id": "msg_17986a4b5001kn2AxyxDIdatsE",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 552,
+              "output": 1276,
+              "reasoning": 117,
+              "cache": {
+                "read": 37088,
+                "write": 0
+              }
+            },
+            "total": 39033
+          },
+          {
+            "id": "msg_17986cd09001Lgk7qpgqZpXPqB",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1435,
+              "output": 457,
+              "reasoning": 2536,
+              "cache": {
+                "read": 37632,
+                "write": 0
+              }
+            },
+            "total": 42060
+          },
+          {
+            "id": "msg_179875fda001W7Y0u5HvFtWP1P",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 3054,
+              "output": 182,
+              "reasoning": 163,
+              "cache": {
+                "read": 39040,
+                "write": 0
+              }
+            },
+            "total": 42439
+          },
+          {
+            "id": "msg_179877204001pIDylgrEa3Ylz1",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 848,
+              "output": 237,
+              "reasoning": 96,
+              "cache": {
+                "read": 42080,
+                "write": 0
+              }
+            },
+            "total": 43261
+          },
+          {
+            "id": "msg_179877d6b001ejdylR6mbrVXE0",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 383,
+              "output": 266,
+              "reasoning": 60,
+              "cache": {
+                "read": 42912,
+                "write": 0
+              }
+            },
+            "total": 43621
+          },
+          {
+            "id": "msg_179878947001KMV6fSQjxC1hti",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 391,
+              "output": 106,
+              "reasoning": 983,
+              "cache": {
+                "read": 43264,
+                "write": 0
+              }
+            },
+            "total": 44744
+          },
+          {
+            "id": "msg_17987bdc90012drm43LxiDWosw",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2127,
+              "output": 322,
+              "reasoning": 76,
+              "cache": {
+                "read": 43648,
+                "write": 0
+              }
+            },
+            "total": 46173
+          },
+          {
+            "id": "msg_17987cd12001oh78wcLIJy9qdu",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 447,
+              "output": 155,
+              "reasoning": 797,
+              "cache": {
+                "read": 45760,
+                "write": 0
+              }
+            },
+            "total": 47159
+          },
+          {
+            "id": "msg_179880122001QP8VIXTB0UUjep",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1001,
+              "output": 95,
+              "reasoning": 36,
+              "cache": {
+                "read": 46176,
+                "write": 0
+              }
+            },
+            "total": 47308
+          },
+          {
+            "id": "msg_17988083b001iWASX7Kv3P1p6K",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 371,
+              "output": 133,
+              "reasoning": 885,
+              "cache": {
+                "read": 47168,
+                "write": 0
+              }
+            },
+            "total": 48557
+          },
+          {
+            "id": "msg_17988355e001gwS8fTl4JDqFAa",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1072,
+              "output": 611,
+              "reasoning": 13,
+              "cache": {
+                "read": 47520,
+                "write": 0
+              }
+            },
+            "total": 49216
+          },
+          {
+            "id": "msg_179884a8b001cNkQyzompDZOMB",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 667,
+              "output": 446,
+              "reasoning": 242,
+              "cache": {
+                "read": 48576,
+                "write": 0
+              }
+            },
+            "total": 49931
+          },
+          {
+            "id": "msg_17988607a001VRca71R0BFj4f1",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 759,
+              "output": 258,
+              "reasoning": 723,
+              "cache": {
+                "read": 49216,
+                "write": 0
+              }
+            },
+            "total": 50956
+          },
+          {
+            "id": "msg_17988875a001wRa4QKxo8gh4wO",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1033,
+              "output": 99,
+              "reasoning": 138,
+              "cache": {
+                "read": 49952,
+                "write": 0
+              }
+            },
+            "total": 51222
+          },
+          {
+            "id": "msg_1798891ec001HJy4sxsu5vLIPz",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 627,
+              "output": 144,
+              "reasoning": 80,
+              "cache": {
+                "read": 50976,
+                "write": 0
+              }
+            },
+            "total": 51827
+          },
+          {
+            "id": "msg_179889ab3001NKC7f6T1iVNVX1",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 272,
+              "output": 144,
+              "reasoning": 107,
+              "cache": {
+                "read": 51584,
+                "write": 0
+              }
+            },
+            "total": 52107
+          },
+          {
+            "id": "msg_17988a30a0012ueGnykYRaHcWO",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 296,
+              "output": 351,
+              "reasoning": 161,
+              "cache": {
+                "read": 51840,
+                "write": 0
+              }
+            },
+            "total": 52648
+          },
+          {
+            "id": "msg_17988b445001Xnd4idacA9vffa",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 549,
+              "output": 532,
+              "reasoning": 39,
+              "cache": {
+                "read": 52128,
+                "write": 0
+              }
+            },
+            "total": 53248
+          },
+          {
+            "id": "msg_17988c664001aFiRFOxUtme9H8",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 624,
+              "output": 91,
+              "reasoning": 21,
+              "cache": {
+                "read": 52672,
+                "write": 0
+              }
+            },
+            "total": 53408
+          },
+          {
+            "id": "msg_17988cc58001ZouqgFGNj0iKP7",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 374,
+              "output": 71,
+              "reasoning": 61,
+              "cache": {
+                "read": 53280,
+                "write": 0
+              }
+            },
+            "total": 53786
+          },
+          {
+            "id": "msg_17988d2d40014C5qcxEnGPCICF",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 6210,
+              "output": 167,
+              "reasoning": 1038,
+              "cache": {
+                "read": 53632,
+                "write": 0
+              }
+            },
+            "total": 61047
+          },
+          {
+            "id": "msg_17989187e001mH6cMYInyxDz3m",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1268,
+              "output": 397,
+              "reasoning": 470,
+              "cache": {
+                "read": 59808,
+                "write": 0
+              }
+            },
+            "total": 61943
+          },
+          {
+            "id": "msg_179893f1c001FsQZn0c7Ivibs4",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1824,
+              "output": 212,
+              "reasoning": 131,
+              "cache": {
+                "read": 61056,
+                "write": 0
+              }
+            },
+            "total": 63223
+          },
+          {
+            "id": "msg_1798951cb001xGUEyd3obzZuii",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 394,
+              "output": 178,
+              "reasoning": 69,
+              "cache": {
+                "read": 62848,
+                "write": 0
+              }
+            },
+            "total": 63489
+          },
+          {
+            "id": "msg_179895b83001zRtiLycK7p35n9",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1691,
+              "output": 105,
+              "reasoning": 481,
+              "cache": {
+                "read": 63232,
+                "write": 0
+              }
+            },
+            "total": 65509
+          },
+          {
+            "id": "msg_179897a3c001UPkpScbtbajOzH",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2158,
+              "output": 175,
+              "reasoning": 2184,
+              "cache": {
+                "read": 64896,
+                "write": 0
+              }
+            },
+            "total": 69413
+          },
+          {
+            "id": "msg_1798a062c001tViglGB25yHZ2M",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2768,
+              "output": 146,
+              "reasoning": 202,
+              "cache": {
+                "read": 67040,
+                "write": 0
+              }
+            },
+            "total": 70156
+          },
+          {
+            "id": "msg_1798a1c0e001tZVrkL9QorgIt2",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 382,
+              "output": 131,
+              "reasoning": 46,
+              "cache": {
+                "read": 69792,
+                "write": 0
+              }
+            },
+            "total": 70351
+          },
+          {
+            "id": "msg_1798a4364001kaWSWNY618GyvU",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 243,
+              "output": 98,
+              "reasoning": 82,
+              "cache": {
+                "read": 70144,
+                "write": 0
+              }
+            },
+            "total": 70567
+          },
+          {
+            "id": "msg_1798a5066001xOKsrXV8Sy3qTi",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 217,
+              "output": 991,
+              "reasoning": 205,
+              "cache": {
+                "read": 70368,
+                "write": 0
+              }
+            },
+            "total": 71781
+          }
+        ],
+        "native_total": 1994637,
+        "maintenance_gap": 2410
+      }
+    ],
+    "cloud": 0,
+    "local": 1992227,
+    "unattributed": 2410
+  },
+  {
+    "phase": "04-repair",
+    "exit_code": 130,
+    "seconds": 920.0839388370514,
+    "sessions": [
+      {
+        "native": {
+          "id": "ses_e86738dc5ffeZBH51R6Z70B73Z",
+          "model": "{\"id\":\"qwen-3.8-nf-splash\",\"providerID\":\"omlx\"}",
+          "parent_id": null,
+          "tokens_input": 52394,
+          "tokens_output": 4524,
+          "tokens_reasoning": 14923,
+          "tokens_cache_read": 624608,
+          "tokens_cache_write": 0
+        },
+        "assistant_usage": [
+          {
+            "id": "msg_1798c7789001T4D1a5mClok1Pp",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1997,
+              "output": 163,
+              "reasoning": 107,
+              "cache": {
+                "read": 6880,
+                "write": 0
+              }
+            },
+            "total": 9147
+          },
+          {
+            "id": "msg_1798c8e1e0011TvZjbxhxEYlhg",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4201,
+              "output": 317,
+              "reasoning": 315,
+              "cache": {
+                "read": 8864,
+                "write": 0
+              }
+            },
+            "total": 13697
+          },
+          {
+            "id": "msg_1798cae06001EzLgrmu9qapsxA",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4063,
+              "output": 160,
+              "reasoning": 64,
+              "cache": {
+                "read": 13056,
+                "write": 0
+              }
+            },
+            "total": 17343
+          },
+          {
+            "id": "msg_1798cbe1b001WoH77xjZz3md6m",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 5270,
+              "output": 137,
+              "reasoning": 124,
+              "cache": {
+                "read": 17088,
+                "write": 0
+              }
+            },
+            "total": 22619
+          },
+          {
+            "id": "msg_1798cd46b001LXTXwk9kq9JXb9",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 389,
+              "output": 189,
+              "reasoning": 28,
+              "cache": {
+                "read": 22336,
+                "write": 0
+              }
+            },
+            "total": 22942
+          },
+          {
+            "id": "msg_1798cdcac001ldgEdNwxsqcISc",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1685,
+              "output": 87,
+              "reasoning": 391,
+              "cache": {
+                "read": 22720,
+                "write": 0
+              }
+            },
+            "total": 24883
+          },
+          {
+            "id": "msg_1798cf7700017BRphJupz5l4ca",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1122,
+              "output": 345,
+              "reasoning": 1116,
+              "cache": {
+                "read": 24384,
+                "write": 0
+              }
+            },
+            "total": 26967
+          },
+          {
+            "id": "msg_1798d3f0c001wo6VgvgvUlbGmG",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1529,
+              "output": 214,
+              "reasoning": 813,
+              "cache": {
+                "read": 25472,
+                "write": 0
+              }
+            },
+            "total": 28028
+          },
+          {
+            "id": "msg_1798d7395001Jc5Vv0U8Yr7yPa",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1148,
+              "output": 177,
+              "reasoning": 208,
+              "cache": {
+                "read": 26976,
+                "write": 0
+              }
+            },
+            "total": 28509
+          },
+          {
+            "id": "msg_1798e19db0011R1vATUViNP159",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2435,
+              "output": 117,
+              "reasoning": 230,
+              "cache": {
+                "read": 28096,
+                "write": 0
+              }
+            },
+            "total": 30878
+          },
+          {
+            "id": "msg_179971943001JjoHCJ7E1cq00K",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 418,
+              "output": 126,
+              "reasoning": 132,
+              "cache": {
+                "read": 30496,
+                "write": 0
+              }
+            },
+            "total": 31172
+          },
+          {
+            "id": "msg_179972588001o0OfTpj8lHtZNq",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 3790,
+              "output": 121,
+              "reasoning": 109,
+              "cache": {
+                "read": 30880,
+                "write": 0
+              }
+            },
+            "total": 34900
+          },
+          {
+            "id": "msg_17997367f0010eDQfchVnDOML8",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4153,
+              "output": 155,
+              "reasoning": 132,
+              "cache": {
+                "read": 34656,
+                "write": 0
+              }
+            },
+            "total": 39096
+          },
+          {
+            "id": "msg_179974d2b001oEsyD5KhAUGpgN",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2051,
+              "output": 278,
+              "reasoning": 1816,
+              "cache": {
+                "read": 38784,
+                "write": 0
+              }
+            },
+            "total": 42929
+          },
+          {
+            "id": "msg_17997bb13001VbU9ZQCeCbzzJp",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 3893,
+              "output": 90,
+              "reasoning": 61,
+              "cache": {
+                "read": 40800,
+                "write": 0
+              }
+            },
+            "total": 44844
+          },
+          {
+            "id": "msg_17997c8a00017KO779Iha5PfL3",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 982,
+              "output": 1,
+              "reasoning": 8191,
+              "cache": {
+                "read": 44672,
+                "write": 0
+              }
+            },
+            "total": 53846
+          },
+          {
+            "id": "msg_179998436002JJEjFuNji1L6Rh",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 8258,
+              "output": 125,
+              "reasoning": 104,
+              "cache": {
+                "read": 45632,
+                "write": 0
+              }
+            },
+            "total": 54119
+          },
+          {
+            "id": "msg_179999e180015QWroiMDMuTSXM",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 297,
+              "output": 503,
+              "reasoning": 159,
+              "cache": {
+                "read": 53856,
+                "write": 0
+              }
+            },
+            "total": 54815
+          },
+          {
+            "id": "msg_17999b4d1001kHMgP6APVwtFeY",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 705,
+              "output": 964,
+              "reasoning": 506,
+              "cache": {
+                "read": 54144,
+                "write": 0
+              }
+            },
+            "total": 56319
+          },
+          {
+            "id": "msg_17999e50f001Qp0JjpLOrZdemJ",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1537,
+              "output": 243,
+              "reasoning": 76,
+              "cache": {
+                "read": 54816,
+                "write": 0
+              }
+            },
+            "total": 56672
+          }
+        ],
+        "native_total": 696449,
+        "maintenance_gap": 2724
+      }
+    ],
+    "cloud": 0,
+    "local": 693725,
+    "unattributed": 2724
+  },
+  {
+    "phase": "05-review",
+    "exit_code": 0,
+    "seconds": 47.43981909751892,
+    "sessions": [
+      {
+        "native": {
+          "id": "ses_e866526dbffegvuqT06Zo06OZv",
+          "model": "{\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"medium\"}",
+          "parent_id": null,
+          "tokens_input": 46993,
+          "tokens_output": 815,
+          "tokens_reasoning": 226,
+          "tokens_cache_read": 118144,
+          "tokens_cache_write": 0
+        },
+        "assistant_usage": [
+          {
+            "id": "msg_1799ad9720016ECf4K2FejhF6c",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 15522,
+              "output": 22,
+              "reasoning": 0,
+              "cache": {
+                "read": 2048,
+                "write": 0
+              }
+            },
+            "total": 17592
+          },
+          {
+            "id": "msg_1799ae8ef001YDFaOUtATbLOQd",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 554,
+              "output": 68,
+              "reasoning": 0,
+              "cache": {
+                "read": 17408,
+                "write": 0
+              }
+            },
+            "total": 18030
+          },
+          {
+            "id": "msg_1799b0015001KV7xM0c5s3GMEp",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 1279,
+              "output": 167,
+              "reasoning": 17,
+              "cache": {
+                "read": 17920,
+                "write": 0
+              }
+            },
+            "total": 19383
+          },
+          {
+            "id": "msg_1799b244d001JXuVFj5QIYObdH",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 11198,
+              "output": 46,
+              "reasoning": 12,
+              "cache": {
+                "read": 19200,
+                "write": 0
+              }
+            },
+            "total": 30456
+          },
+          {
+            "id": "msg_1799b3fd5001nLBBPKhEbPpNoe",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 892,
+              "output": 163,
+              "reasoning": 0,
+              "cache": {
+                "read": 30336,
+                "write": 0
+              }
+            },
+            "total": 31391
+          },
+          {
+            "id": "msg_1799b5d3e00116dS1nI9z7xhMU",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 4599,
+              "output": 335,
+              "reasoning": 0,
+              "cache": {
+                "read": 31232,
+                "write": 0
+              }
+            },
+            "total": 36166
+          }
+        ],
+        "native_total": 166178,
+        "maintenance_gap": 13160
+      }
+    ],
+    "cloud": 153018,
+    "local": 0,
+    "unattributed": 13160
+  },
+  {
+    "phase": "06-repair-final",
+    "exit_code": 0,
+    "seconds": 388.54223012924194,
+    "sessions": [
+      {
+        "native": {
+          "id": "ses_e864360d4ffelI7EtQLeqhh92d",
+          "model": "{\"id\":\"qwen-3.8-nf-splash\",\"providerID\":\"omlx\"}",
+          "parent_id": null,
+          "tokens_input": 60592,
+          "tokens_output": 5921,
+          "tokens_reasoning": 24846,
+          "tokens_cache_read": 977344,
+          "tokens_cache_write": 0
+        },
+        "assistant_usage": [
+          {
+            "id": "msg_179bc9fca001A96316iZHefAPr",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2352,
+              "output": 147,
+              "reasoning": 26,
+              "cache": {
+                "read": 6880,
+                "write": 0
+              }
+            },
+            "total": 9405
+          },
+          {
+            "id": "msg_179bcb410001VXtSbqkb04aVvf",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 840,
+              "output": 168,
+              "reasoning": 12,
+              "cache": {
+                "read": 9216,
+                "write": 0
+              }
+            },
+            "total": 10236
+          },
+          {
+            "id": "msg_179bcba42001QBG3JEcC3sOaV2",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 6896,
+              "output": 149,
+              "reasoning": 84,
+              "cache": {
+                "read": 10048,
+                "write": 0
+              }
+            },
+            "total": 17177
+          },
+          {
+            "id": "msg_179bccfc00015dAxbnachcGd0X",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1602,
+              "output": 218,
+              "reasoning": 1541,
+              "cache": {
+                "read": 16928,
+                "write": 0
+              }
+            },
+            "total": 20289
+          },
+          {
+            "id": "msg_179bd2669001tb28fu1cA1c8Oe",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 6324,
+              "output": 155,
+              "reasoning": 24,
+              "cache": {
+                "read": 18496,
+                "write": 0
+              }
+            },
+            "total": 24999
+          },
+          {
+            "id": "msg_179bd37b0001Uf7whZyQGACt4v",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2676,
+              "output": 184,
+              "reasoning": 4005,
+              "cache": {
+                "read": 24800,
+                "write": 0
+              }
+            },
+            "total": 31665
+          },
+          {
+            "id": "msg_179be0021001zB9XSFIkfno7wf",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 6782,
+              "output": 216,
+              "reasoning": 3068,
+              "cache": {
+                "read": 27456,
+                "write": 0
+              }
+            },
+            "total": 37522
+          },
+          {
+            "id": "msg_179bea58f001SdkaLMSojblCQq",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 4028,
+              "output": 0,
+              "reasoning": 8192,
+              "cache": {
+                "read": 34208,
+                "write": 0
+              }
+            },
+            "total": 46428
+          },
+          {
+            "id": "msg_179c02bf0001fzEUZYuYaI2QUT",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 8267,
+              "output": 248,
+              "reasoning": 166,
+              "cache": {
+                "read": 38208,
+                "write": 0
+              }
+            },
+            "total": 46889
+          },
+          {
+            "id": "msg_179c04bd1001d5fOuZAFqkt409",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 455,
+              "output": 594,
+              "reasoning": 79,
+              "cache": {
+                "read": 46464,
+                "write": 0
+              }
+            },
+            "total": 47592
+          },
+          {
+            "id": "msg_179c0633700137U05FdV99czsX",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 714,
+              "output": 240,
+              "reasoning": 48,
+              "cache": {
+                "read": 46912,
+                "write": 0
+              }
+            },
+            "total": 47914
+          },
+          {
+            "id": "msg_179c06e5c0011nWGgLsGeOW3hl",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 332,
+              "output": 100,
+              "reasoning": 39,
+              "cache": {
+                "read": 47616,
+                "write": 0
+              }
+            },
+            "total": 48087
+          },
+          {
+            "id": "msg_179c07412001mO0WjifvtAN5S9",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1154,
+              "output": 99,
+              "reasoning": 1184,
+              "cache": {
+                "read": 47936,
+                "write": 0
+              }
+            },
+            "total": 50373
+          },
+          {
+            "id": "msg_179c0b2790010wp65jM2SkYGt6",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2143,
+              "output": 299,
+              "reasoning": 106,
+              "cache": {
+                "read": 49056,
+                "write": 0
+              }
+            },
+            "total": 51604
+          },
+          {
+            "id": "msg_179c0c45a001KF7gsWkbBIiW7P",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 465,
+              "output": 229,
+              "reasoning": 199,
+              "cache": {
+                "read": 51168,
+                "write": 0
+              }
+            },
+            "total": 52061
+          },
+          {
+            "id": "msg_179c0d191001QTx1mASfwFQWFk",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 474,
+              "output": 99,
+              "reasoning": 36,
+              "cache": {
+                "read": 51616,
+                "write": 0
+              }
+            },
+            "total": 52225
+          },
+          {
+            "id": "msg_179c0d7a3001ZYjlZNkBYcck2G",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 739,
+              "output": 485,
+              "reasoning": 232,
+              "cache": {
+                "read": 52064,
+                "write": 0
+              }
+            },
+            "total": 53520
+          },
+          {
+            "id": "msg_179c0f31a0011si1kwSM1pRgFD",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 781,
+              "output": 438,
+              "reasoning": 294,
+              "cache": {
+                "read": 52768,
+                "write": 0
+              }
+            },
+            "total": 54281
+          },
+          {
+            "id": "msg_179c111cd001PmRp36sW1j5k4F",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 774,
+              "output": 230,
+              "reasoning": 211,
+              "cache": {
+                "read": 53536,
+                "write": 0
+              }
+            },
+            "total": 54751
+          },
+          {
+            "id": "msg_179c12b490013svBymM8xPLhJZ",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1742,
+              "output": 130,
+              "reasoning": 2159,
+              "cache": {
+                "read": 54304,
+                "write": 0
+              }
+            },
+            "total": 58335
+          },
+          {
+            "id": "msg_179c1a445001mJMOcIrcpjkjFL",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2329,
+              "output": 119,
+              "reasoning": 91,
+              "cache": {
+                "read": 56032,
+                "write": 0
+              }
+            },
+            "total": 58571
+          },
+          {
+            "id": "msg_179c1b1b700117j5GH3ko1ULqg",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 2356,
+              "output": 110,
+              "reasoning": 1565,
+              "cache": {
+                "read": 58336,
+                "write": 0
+              }
+            },
+            "total": 62367
+          },
+          {
+            "id": "msg_179c208e8001ylHYZ1NgDHFzpu",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1985,
+              "output": 156,
+              "reasoning": 488,
+              "cache": {
+                "read": 60672,
+                "write": 0
+              }
+            },
+            "total": 63301
+          },
+          {
+            "id": "msg_179c22c42001slih2mgoDxZ1OO",
+            "model": {
+              "id": "qwen-3.8-nf-splash",
+              "providerID": "omlx",
+              "variant": "default"
+            },
+            "tokens": {
+              "input": 1556,
+              "output": 1099,
+              "reasoning": 936,
+              "cache": {
+                "read": 62624,
+                "write": 0
+              }
+            },
+            "total": 66215
+          }
+        ],
+        "native_total": 1068703,
+        "maintenance_gap": 2896
+      }
+    ],
+    "cloud": 0,
+    "local": 1065807,
+    "unattributed": 2896
+  },
+  {
+    "phase": "07-review-final",
+    "exit_code": 0,
+    "seconds": 21.5745050907135,
+    "sessions": [
+      {
+        "native": {
+          "id": "ses_e8638a7c9ffeJG0rBsXVCd8EAi",
+          "model": "{\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"medium\"}",
+          "parent_id": null,
+          "tokens_input": 12626,
+          "tokens_output": 315,
+          "tokens_reasoning": 102,
+          "tokens_cache_read": 16256,
+          "tokens_cache_write": 0
+        },
+        "assistant_usage": [
+          {
+            "id": "msg_179c75d66001QgPtRH7gLcTNyn",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 12175,
+              "output": 24,
+              "reasoning": 42,
+              "cache": {
+                "read": 2048,
+                "write": 0
+              }
+            },
+            "total": 14289
+          },
+          {
+            "id": "msg_179c77754001SN8o7YRxjryJMe",
+            "model": {
+              "id": "gpt-6.1-sol",
+              "providerID": "openai",
+              "variant": "medium"
+            },
+            "tokens": {
+              "input": 451,
+              "output": 291,
+              "reasoning": 60,
+              "cache": {
+                "read": 14208,
+                "write": 0
+              }
+            },
+            "total": 15010
+          }
+        ],
+        "native_total": 29299,
+        "maintenance_gap": 0
+      }
+    ],
+    "cloud": 29299,
+    "local": 0,
+    "unattributed": 0
+  }
+]

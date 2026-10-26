@@ -1,0 +1,54 @@
+{
+  "root_id": "01a179cd-783c-7340-9b60-f7d6424d9ab3",
+  "final": true,
+  "counting": "sum final cumulative input+output counters once per native session; cached input included in input; reasoning included in output, not added again",
+  "sessions": [
+    {
+      "session_id": "01a179cd-783c-7340-9b60-f7d6424d9ab3",
+      "parent_id": null,
+      "models": [
+        [
+          "gpt-6.1-sol",
+          "medium"
+        ]
+      ],
+      "native_path": "/Users/oleksii.naboichenko/.codex/sessions/2026/10/26/rollout-2026-10-26T16-01-11-01a179cd-783c-7340-9b60-f7d6424d9ab3.jsonl",
+      "first_event": "2026-10-26T20:01:11.388Z",
+      "last_event": "2026-10-26T20:13:07.337Z",
+      "usage": {
+        "input_tokens": 3005188,
+        "cached_input_tokens": 2888576,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8013,
+        "reasoning_output_tokens": 799,
+        "total_tokens": 3013201
+      }
+    },
+    {
+      "session_id": "01a179cd-e448-77b0-92d3-e8dc83eeba1b",
+      "parent_id": "01a179cd-783c-7340-9b60-f7d6424d9ab3",
+      "models": [
+        [
+          "gpt-6-luna",
+          "medium"
+        ]
+      ],
+      "native_path": "/Users/oleksii.naboichenko/.codex/sessions/2026/10/26/rollout-2026-10-26T16-01-38-01a179cd-e448-77b0-92d3-e8dc83eeba1b.jsonl",
+      "first_event": "2026-10-26T20:01:38.904Z",
+      "last_event": "2026-10-26T20:08:00.147Z",
+      "usage": {
+        "input_tokens": 3137075,
+        "cached_input_tokens": 3032064,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 21247,
+        "reasoning_output_tokens": 9967,
+        "total_tokens": 3158322
+      }
+    }
+  ],
+  "cloud_total": 6171523,
+  "by_model": {
+    "gpt-6.1-sol": 3013201,
+    "gpt-6-luna": 3158322
+  }
+}
