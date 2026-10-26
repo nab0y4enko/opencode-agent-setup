@@ -1,8 +1,0 @@
-[
-  {"id":"orchestrator","prompt":"enhance"},
-  {"id":"build","prompt":"enhance"},
-  {"id":"plan","prompt":"enhance"},
-  {"id":"general","prompt":"enhance"},
-  {"id":"explore","prompt":"enhance"},
-  {"id":"cloud-reviewer","prompt":"enhance"}
-]
