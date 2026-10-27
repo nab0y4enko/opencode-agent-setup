@@ -2,6 +2,7 @@
 import contextlib
 import io
 import json
+import os
 import sqlite3
 import shutil
 import subprocess
@@ -230,6 +231,27 @@ class OwnedCleanup(unittest.TestCase):
         self.assertEqual(report['status'], 'blocked_owned_processes_alive')
         self.assertTrue(self.repo.exists())
 
+    def test_a_recorded_process_group_that_has_since_exited_no_longer_blocks_cleanup(self):
+        finished = subprocess.Popen(['true'], start_new_session=True)
+        finished.wait()
+        (self.out / 'arms' / 'codex').mkdir(parents=True, exist_ok=True)
+        (self.out / 'arms' / 'codex' / 'result.json').write_text(json.dumps({'execution': {'process_group_still_alive': True, 'pgid': finished.pid}}), encoding='utf-8')
+        report = R.archive_and_cleanup(self.out, self.manifest(self.repo), 'codex')
+        self.assertEqual(report['status'], 'archived_and_removed', report)
+        self.assertFalse(self.repo.exists())
+
+    def test_the_bundle_verifies_from_a_copied_checkout_without_any_git_repository_around_it(self):
+        elsewhere = tempfile.mkdtemp()
+        previous = os.getcwd()
+        try:
+            os.chdir(elsewhere)
+            report = R.archive_and_cleanup(self.out, self.manifest(self.repo), 'codex')
+        finally:
+            os.chdir(previous)
+            shutil.rmtree(elsewhere, ignore_errors=True)
+        self.assertEqual(report['status'], 'archived_and_removed', report)
+        self.assertTrue(report['bundle_verified'])
+
     def test_a_symlinked_component_inside_the_run_is_refused_before_archive_or_delete(self):
         outside = Path(self.raw) / 'unrelated-tree'
         outside.mkdir()
@@ -249,6 +271,35 @@ class OwnedCleanup(unittest.TestCase):
         self.assertEqual(report['status'], 'blocked_symlinked_path')
         self.assertTrue((elsewhere / 'run' / 'arms' / 'codex' / 'repo' / 'ttl_cache.py').exists())
         self.assertFalse((elsewhere / 'run' / 'archives').exists())
+class CliEventLogs(unittest.TestCase):
+
+    def test_the_root_thread_is_the_first_thread_started_event(self):
+        with tempfile.TemporaryDirectory() as raw:
+            log = Path(raw) / 'arm.stdout.log'
+            log.write_text('\n'.join([json.dumps({'type': 'thread.started', 'thread_id': 'root-thread'}),
+                                       json.dumps({'type': 'item.completed', 'thread_id': 'worker-thread'}),
+                                       json.dumps({'type': 'thread.started', 'thread_id': 'worker-thread'}),
+                                       'not json']), encoding='utf-8')
+            self.assertEqual(R.root_thread_from_log(log), 'root-thread')
+            log.write_text(json.dumps({'type': 'turn.completed'}), encoding='utf-8')
+            self.assertIsNone(R.root_thread_from_log(log))
+
+class FixtureCheckout(unittest.TestCase):
+
+    def test_user_git_hooks_and_commit_signing_never_touch_the_frozen_baseline(self):
+        with tempfile.TemporaryDirectory() as raw:
+            hooks = Path(raw) / 'hooks'
+            hooks.mkdir()
+            (hooks / 'pre-commit').write_text('#!/bin/sh\necho hook-ran > "$(git rev-parse --git-dir)/../HOOK"\nexit 1\n', encoding='utf-8')
+            (hooks / 'pre-commit').chmod(0o755)
+            config = Path(raw) / 'gitconfig'
+            config.write_text(f'[core]\n\thooksPath = {hooks}\n[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = /nonexistent/gpg\n', encoding='utf-8')
+            with mock.patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': str(config)}):
+                base = R.make_checkout(Path(raw) / 'repo')
+            self.assertEqual(len(base), 40)
+            self.assertFalse((Path(raw) / 'repo' / 'HOOK').exists())
+            self.assertEqual(R.git(Path(raw) / 'repo', 'status', '--porcelain'), '')
+
 class FakeCliHarness(unittest.TestCase):
     timeout = 60
 
@@ -485,6 +536,36 @@ class NegativeArms(FakeCliHarness):
         self.assertEqual(cleanup['codex']['status'], 'archived_and_removed')
         self.assertTrue(cleanup['codex']['tar_verified'])
         self.assertEqual(report['metrics']['per_arm_completed_tasks']['codex'], 0)
+
+    def test_a_helper_left_running_in_the_owned_group_is_terminated_before_the_check(self):
+        marker = self.raw / 'lingering.pid'
+        (code, text) = self.live({'linger': str(marker)})
+        self.assertEqual(code, 0, text)
+        pid = int(marker.read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+        execution = json.loads((self.out / 'arms' / 'codex' / 'arm.execution.json').read_text('utf-8'))
+        self.assertFalse(execution['timed_out'])
+        self.assertTrue(execution['lingering_group_terminated'])
+        self.assertFalse(execution['process_group_still_alive'])
+        self.assertTrue(self.arm('codex')['accepted'], self.arm('codex')['blockers'])
+        cleanup = {entry['arm']: entry for entry in self.report()['cleanup']}
+        self.assertEqual(cleanup['codex']['status'], 'archived_and_removed')
+
+    def test_a_live_rerun_with_options_that_differ_from_the_prepared_run_is_refused(self):
+        (code, text) = self.cli(['prepare'] + self.frozen())
+        self.assertEqual(code, 0, text)
+        argv = self.frozen()
+        argv[argv.index('--timeout') + 1] = str(self.timeout + 1)
+        argv[argv.index('--local-model') + 1] = 'omlx/another-model'
+        (code, text) = self.cli(['run'] + argv + ['--live'])
+        self.assertEqual(code, 2, text)
+        self.assertIn('--timeout', text)
+        self.assertIn('--local-model', text)
+        self.assertFalse((self.out / 'arms' / 'codex' / 'arm.stdout.log').exists())
+        self.assertFalse(R.load_manifest(self.out).get('live_started'))
+        (code, text) = self.cli(['run'] + self.frozen())
+        self.assertEqual(code, 0, text)
 
 class DesktopAppImport(FakeCliHarness):
 

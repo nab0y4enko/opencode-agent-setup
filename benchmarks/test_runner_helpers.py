@@ -131,9 +131,10 @@ if cfg.get('child_active'):
     (session_dir / (child + '.jsonl')).write_text(''.join(kept), encoding='utf-8')
 print(json.dumps({'type': 'thread.started', 'thread_id': root}), flush=True)
 print(json.dumps({'type': 'turn.completed'}), flush=True)
-if cfg.get('detached'):
-    subprocess.Popen('sleep 120', shell=True, start_new_session=True)
-    subprocess.Popen('sleep 120', shell=True)
+if cfg.get('linger'):
+    # A helper left behind in the arm's own process group, still running after the client exits.
+    lingering = subprocess.Popen(['sleep', '120'])
+    Path(cfg['linger']).write_text(str(lingering.pid))
 if cfg.get('sleep'):
     time.sleep(cfg['sleep'])
 sys.exit(cfg.get('exit_code', 0))

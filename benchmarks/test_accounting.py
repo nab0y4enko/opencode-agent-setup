@@ -82,7 +82,41 @@ class CodexUsage(unittest.TestCase):
         self.assertTrue(blockers_have(result, 'inconsistent'))
 
 
+    def test_cache_write_input_is_a_reported_subset_of_input_never_extra_spend(self):
+        recorded = {'input_tokens': 100, 'cached_input_tokens': 60, 'cache_write_input_tokens': 30,
+                    'output_tokens': 20, 'reasoning_output_tokens': 5, 'total_tokens': 120}
+        parts = A.codex_disjoint(recorded)
+        self.assertTrue(parts['complete'])
+        self.assertEqual((parts['cache_write_input'], parts['cloud_total']), (30, 120))
+        result = codex(root_usage=recorded)
+        self.assertTrue(result['usage_complete'], result['blockers'])
+        self.assertEqual(result['cache_write_input_total'], 30)
+        self.assertEqual(result['cloud_total'], 120 + 400)
+        oversized = codex(root_usage=dict(recorded, cache_write_input_tokens=101))
+        self.assertFalse(oversized['usage_complete'])
+        self.assertEqual(oversized['sessions'][0]['usage_status'], 'inconsistent')
+        malformed = A.codex_disjoint(dict(recorded, cache_write_input_tokens='30k'))
+        self.assertEqual(malformed['invalid_fields'], ['cache_write_input_tokens'])
+        self.assertFalse(malformed['complete'])
+
+
 class CodexFailClosed(unittest.TestCase):
+    def test_worker_turns_beyond_one_repair_fail_closed_whatever_tool_dispatched_them(self):
+        # Real Codex multi-agent roots dispatch follow-ups with send_message/followup_task; the
+        # worker's own task_started markers are the authoritative count of turns it actually ran.
+        def worker_turns(turns, **kwargs):
+            catalog = H.codex_catalog()
+            catalog[H.CHILD]['completion_markers'] = ['task_started', 'task_complete'] * turns
+            return A.account_codex(catalog, [H.ROOT, H.CHILD], **H.CODEX_KW, **kwargs)
+        three = worker_turns(3)
+        self.assertEqual(three['sessions'][1]['turns'], 3)
+        self.assertEqual(three['root_dispatch_calls']['followup'], 0)
+        self.assertFalse(three['routing_ok'])
+        self.assertTrue(blockers_have(three, 'worker ran 3 turn(s)'))
+        repaired = worker_turns(2)
+        self.assertTrue(repaired['routing_ok'], repaired['blockers'])
+        self.assertFalse(worker_turns(2, max_worker_turns=1)['routing_ok'])
+
     def test_missing_child_model_is_never_assumed(self):
         result = codex(child_models=[])
         self.assertEqual(result['unexpected_models'], [f'{H.CHILD}:child:missing-model'])
@@ -169,6 +203,37 @@ class CodexRolloutFiles(unittest.TestCase):
                 odd_path = Path(raw) / f'odd-{type(odd).__name__}.jsonl'
                 H.write_rollout(odd_path, 'odd', source=odd)
                 self.assertEqual(A.scan_codex_rollout(odd_path)['session_id'], 'odd', odd)
+
+    def test_real_multi_agent_rollout_shapes_keep_the_root_verdict_its_own(self):
+        # Shapes observed in Codex 0.163/0.164 rollouts: spawn_agent returns only a task name,
+        # lineage lives in session_meta, and a worker's message to the root is a response_item
+        # agent_message authored by the worker.  That message must never become the root verdict.
+        with tempfile.TemporaryDirectory() as raw:
+            home = Path(raw) / 'sessions' / '2026-10-26'
+            root = H.write_rollout(home / f'{H.ROOT}.jsonl', H.ROOT, total=H.usage(300, 100, 50, 10))
+            events = [json.loads(line) for line in root.read_text().splitlines()]
+            events[3:3] = [
+                {'timestamp': H.T0, 'type': 'response_item',
+                 'payload': {'type': 'function_call', 'name': 'spawn_agent', 'call_id': 'c1'}},
+                {'timestamp': H.T0, 'type': 'response_item',
+                 'payload': {'type': 'function_call_output', 'call_id': 'c1',
+                             'output': json.dumps({'task_name': '/root/worker'})}},
+                {'timestamp': H.T0, 'type': 'response_item',
+                 'payload': {'type': 'message', 'role': 'assistant',
+                             'content': [{'type': 'output_text', 'text': 'Root reviewed it.\nVERDICT: FAIL ' + H.SHA}]}},
+                {'timestamp': H.T1, 'type': 'response_item',
+                 'payload': {'type': 'agent_message', 'author': '/root/worker', 'recipient': '/root',
+                             'message': 'VERDICT: PASS ' + H.SHA,
+                             'content': [{'type': 'input_text', 'text': 'VERDICT: PASS ' + H.SHA}]}}]
+            root.write_text(''.join(json.dumps(event) + '\n' for event in events))
+            H.write_rollout(home / f'{H.CHILD}.jsonl', H.CHILD, parent=H.ROOT, model=H.LUNA,
+                            total=H.usage(100, 0, 20, 0))
+            catalog = A.scan_codex_rollouts(Path(raw) / 'sessions')
+            self.assertEqual(catalog[H.ROOT]['spawned_ids'], [])
+            self.assertEqual(A.codex_tree(catalog, H.ROOT), sorted([H.ROOT, H.CHILD]))
+            result = A.account_codex(catalog, A.codex_tree(catalog, H.ROOT), **H.CODEX_KW)
+            self.assertEqual(result['root_final_text'], 'Root reviewed it.\nVERDICT: FAIL ' + H.SHA)
+            self.assertEqual(A.semantic_verdict(result['root_final_text'], H.SHA)['status'], 'not_pass')
 
     def test_malformed_rollout_lines_prevent_complete_evidence(self):
         with tempfile.TemporaryDirectory() as raw:

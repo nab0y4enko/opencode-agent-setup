@@ -156,8 +156,10 @@ def make_checkout(repo):
     exclude = repo / '.git' / 'info' / 'exclude'
     exclude.parent.mkdir(parents=True, exist_ok=True)
     exclude.write_text('__pycache__/\n*.pyc\n', encoding='utf-8')
-    git(repo, '-c', 'user.name=benchmark', '-c', 'user.email=benchmark@local', 'add', '-A')
-    git(repo, '-c', 'user.name=benchmark', '-c', 'user.email=benchmark@local', 'commit', '-qm', 'frozen fixture baseline')
+    # The baseline commit is the runner's own: no user hook or signing setup may alter or block it.
+    isolated = ('-c', 'user.name=benchmark', '-c', 'user.email=benchmark@local', '-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false')
+    git(repo, *isolated, 'add', '-A')
+    git(repo, *isolated, 'commit', '-qm', 'frozen fixture baseline')
     return git(repo, 'rev-parse', 'HEAD')
 
 def build_prompts(child_model=DEFAULT_CHILD_MODEL, effort=DEFAULT_EFFORT):
@@ -266,7 +268,7 @@ def cmd_prepare(args):
         print(f'BLOCKER: {blocker}', file=sys.stderr)
         return 2
     bins = {'codex': args.codex_bin, 'opencode': args.opencode_bin}
-    snapshot = A.config_snapshot(Path(args.opencode_config), os.environ)
+    snapshot = A.config_snapshot(Path(args.opencode_config).expanduser(), os.environ)
     (profile_blockers, profile_observed) = A.validate_native_profile(snapshot, args.local_model)
     prompts = build_prompts(args.child_model, args.effort)
     (out / 'prompts').mkdir(parents=True)
@@ -279,8 +281,7 @@ def cmd_prepare(args):
         arms[arm] = {'repo': str(repo), 'base': make_checkout(repo), 'prompt_sha256': A.sha256_bytes(prompts[arm].encode()), 'task_sha256': A.sha256_bytes(TASK.encode())}
     machine = machine_info(bins)
     machine['label'] = args.label or platform.node()
-    manifest = {'protocol': A.PROTOCOL, 'frozen_utc': now(), 'state': 'prepared', 'machine': machine, 'measurement_kind': 'cli', 'models': {'codex_cloud': args.codex_cloud_model, 'codex_child': args.child_model, 'opencode_cloud': args.opencode_cloud_model, 'local': args.local_model, 'effort': DEFAULT_EFFORT}, 'budget': {'wall_clock_seconds_per_arm': args.timeout, 'initial': 1, 'repair': 1}, 'check': CHECK, 'expected_tests': EXPECTED_TESTS, 'allowed_changed': ALLOWED_CHANGED, 'frozen_files': FROZEN_FILES, 'task': TASK, 'fixture_sha256': fixture_hashes(), 'native_config': {'path': snapshot['path'], 'raw_sha256': snapshot['raw_sha256'], 'snapshot': snapshot['snapshot'], 'stats': snapshot['stats']}, 'native_profile': {'blockers': profile_blockers, 'observed': profile_observed}, 'binaries': {k: str(Path(v).expanduser()) if v else None for (k, v) in bins.items()}, 'codex_home': str(Path(args.codex_home).expanduser()) if args.codex_home else None, 'opencode_db': str(Path(args.opencode_db).expanduser()) if args.opencode_db else None, 'permission_policy': args.permission_policy, 'arms': arms, 'completed_arms': [], 'owned_paths': [str(out / 'arms' / a / 'repo') for a in ('codex', 'opencode')], 'notes': ['CLI arms measure CLI clients only; a desktop App session is a separate client label imported by `finish`.', 'Token counts are raw model tokens, not quota or price; cross-Mac cache state is an unknown caveat.']}
-    manifest['models']['effort'] = args.effort
+    manifest = {'protocol': A.PROTOCOL, 'frozen_utc': now(), 'state': 'prepared', 'machine': machine, 'measurement_kind': 'cli', 'models': {'codex_cloud': args.codex_cloud_model, 'codex_child': args.child_model, 'opencode_cloud': args.opencode_cloud_model, 'local': args.local_model, 'effort': args.effort}, 'budget': {'wall_clock_seconds_per_arm': args.timeout, 'initial': 1, 'repair': 1}, 'check': CHECK, 'expected_tests': EXPECTED_TESTS, 'allowed_changed': ALLOWED_CHANGED, 'frozen_files': FROZEN_FILES, 'task': TASK, 'fixture_sha256': fixture_hashes(), 'native_config': {'path': snapshot['path'], 'raw_sha256': snapshot['raw_sha256'], 'snapshot': snapshot['snapshot'], 'stats': snapshot['stats']}, 'native_profile': {'blockers': profile_blockers, 'observed': profile_observed}, 'binaries': {k: str(Path(v).expanduser()) if v else None for (k, v) in bins.items()}, 'codex_home': str(Path(args.codex_home).expanduser()) if args.codex_home else None, 'opencode_db': str(Path(args.opencode_db).expanduser()) if args.opencode_db else None, 'permission_policy': args.permission_policy, 'arms': arms, 'completed_arms': [], 'owned_paths': [str(out / 'arms' / a / 'repo') for a in ('codex', 'opencode')], 'notes': ['CLI arms measure CLI clients only; a desktop App session is a separate client label imported by `finish`.', 'Token counts are raw model tokens, not quota or price; cross-Mac cache state is an unknown caveat.']}
     manifest['frozen_fields_sha256'] = frozen_fields_sha256(manifest)
     save_manifest(out, manifest)
     (out / 'DESKTOP.md').write_text(DESKTOP_STEPS + '\nCodex fixture: ' + arms['codex']['repo'] + '\n', encoding='utf-8')
@@ -295,6 +296,31 @@ def descendants(pid):
     kids = [int(x) for x in proc.stdout.split()] if proc.returncode == 0 else []
     return kids + [kid for child in kids for kid in descendants(child)]
 
+def signal_group(pgid, sig):
+    """Signal the owned process group; False once the group no longer exists."""
+    try:
+        os.killpg(pgid, sig)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+def terminate_group(pgid, grace=5.0):
+    """SIGTERM, then SIGKILL after a grace period, every process left in the owned group."""
+    if not signal_group(pgid, signal.SIGTERM):
+        return
+    end = time.monotonic() + grace
+    while time.monotonic() < end:
+        if not signal_group(pgid, 0):
+            return
+        time.sleep(0.1)
+    signal_group(pgid, signal.SIGKILL)
+    for _ in range(50):
+        if not signal_group(pgid, 0):
+            return
+        time.sleep(0.1)
+
 def launch(argv, cwd, evidence, timeout, name, env=None):
     evidence.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ if env is None else env, PYTHONDONTWRITEBYTECODE='1')
@@ -306,41 +332,44 @@ def launch(argv, cwd, evidence, timeout, name, env=None):
         pgid = os.getpgid(proc.pid)
         timed_out = False
         children_before_kill = []
+        lingering = False
         try:
-            code = proc.wait(timeout=timeout)
+            proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             timed_out = True
-            kids = descendants(proc.pid)
-            children_before_kill = kids
-            for sig in (signal.SIGTERM, signal.SIGKILL):
-                for kid in kids:
-                    try:
-                        os.kill(kid, sig)
-                    except (ProcessLookupError, PermissionError):
-                        pass
+            children_before_kill = descendants(proc.pid)
+            for kid in children_before_kill:
                 try:
-                    os.killpg(pgid, sig)
-                except ProcessLookupError:
-                    break
+                    os.kill(kid, signal.SIGTERM)
+                except (ProcessLookupError, PermissionError):
+                    pass
+            terminate_group(pgid)
+            for kid in children_before_kill:
                 try:
-                    code = proc.wait(timeout=5)
-                    break
-                except subprocess.TimeoutExpired:
-                    continue
-            code = proc.returncode if proc.returncode is not None else -1
+                    os.kill(kid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+        else:
+            # The client exited, but anything still in its own session group is the arm's work
+            # continuing past its end: it could keep spending or edit the checkout after the check.
+            lingering = signal_group(pgid, 0)
+            if lingering:
+                terminate_group(pgid)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        code = proc.returncode
     survivors = []
-    for kid in descendants(proc.pid):
+    for kid in children_before_kill:
         try:
             os.kill(kid, 0)
             survivors.append(kid)
         except (ProcessLookupError, PermissionError):
             pass
-    group_alive = True
-    try:
-        os.killpg(pgid, 0)
-    except ProcessLookupError:
-        group_alive = False
-    record = {'argv': argv, 'cwd': str(cwd), 'start_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start)), 'seconds': round(time.time() - start, 3), 'exit_code': code, 'timed_out': timed_out, 'deadline_seconds': timeout, 'pgid': pgid, 'children_before_kill': children_before_kill, 'process_group_still_alive': group_alive, 'surviving_children': survivors, 'stdout_log': str(stdout_path), 'stderr_log': str(stderr_path), 'deadline_kind': 'deterministic external wait/kill of the owned process tree', 'attempts': 1, 'outer_retry': False}
+    group_alive = signal_group(pgid, 0)
+    record = {'argv': argv, 'cwd': str(cwd), 'start_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start)), 'seconds': round(time.time() - start, 3), 'exit_code': code, 'timed_out': timed_out, 'deadline_seconds': timeout, 'pgid': pgid, 'children_before_kill': children_before_kill, 'lingering_group_terminated': lingering, 'process_group_still_alive': group_alive, 'surviving_children': survivors, 'stdout_log': str(stdout_path), 'stderr_log': str(stderr_path), 'deadline_kind': 'deterministic external wait/kill of the owned process tree', 'attempts': 1, 'outer_retry': False}
     (evidence / f'{name}.execution.json').write_text(json.dumps(record, indent=2), encoding='utf-8')
     return record
 
@@ -426,7 +455,7 @@ def opencode_argv(manifest, prompt):
     return [manifest['binaries']['opencode'], 'run', '--standalone', '--format', 'json', '--agent', 'hybrid', '--model', manifest['models']['opencode_cloud'], prompt]
 
 def root_thread_from_log(path):
-    thread_id = None
+    """The root is the FIRST thread.started event; later events may name worker threads."""
     for line in Path(path).read_text(encoding='utf-8', errors='replace').splitlines():
         line = line.strip()
         if not line.startswith('{'):
@@ -435,11 +464,9 @@ def root_thread_from_log(path):
             event = json.loads(line)
         except ValueError:
             continue
-        if not isinstance(event, dict):
-            continue
-        if 'thread.started' in str(event.get('type')) or event.get('thread_id'):
-            thread_id = event.get('thread_id') or event.get('id') or thread_id
-    return thread_id
+        if isinstance(event, dict) and event.get('type') == 'thread.started' and event.get('thread_id'):
+            return event['thread_id']
+    return None
 
 def session_ids_from_log(path):
     ids = []
@@ -473,7 +500,8 @@ def archive_rollouts(catalog, ids, evidence):
 
 def codex_expectations(manifest):
     models = manifest['models']
-    return {'expected_root_model': models['codex_cloud'], 'expected_child_model': models['codex_child'], 'expected_effort': models['effort']}
+    budget = manifest['budget']
+    return {'expected_root_model': models['codex_cloud'], 'expected_child_model': models['codex_child'], 'expected_effort': models['effort'], 'max_worker_turns': budget['initial'] + budget['repair']}
 
 def window_seconds(window):
     try:
@@ -818,7 +846,9 @@ def archive_and_cleanup(out, manifest, arm):
             alive.append(int(pid))
         except (OSError, ValueError, TypeError):
             pass
-    if exec_rec.get('process_group_still_alive') or alive:
+    pgid = exec_rec.get('pgid')
+    group_alive = bool(exec_rec.get('process_group_still_alive')) and (not isinstance(pgid, int) or signal_group(pgid, 0))
+    if group_alive or alive:
         report.update({'status': 'blocked_owned_processes_alive', 'alive_pids': alive, 'blocker': 'an owned process tree is still alive; a reparented child is still ours, so cleanup waits'})
         return report
     try:
@@ -847,7 +877,8 @@ def archive_and_cleanup(out, manifest, arm):
         report['tar_verified'] = bool(listing) and all((members.get(entry['name']) == (entry['size'], entry['sha256']) for entry in listing))
         report['tar_sha256'] = A.sha256_file(tar_path)
         git(repo, 'bundle', 'create', str(bundle_path), 'HEAD')
-        report['bundle_verified'] = subprocess.run(['git', 'bundle', 'verify', str(bundle_path)], capture_output=True, check=False).returncode == 0
+        # `git bundle verify` needs a repository; use the checkout itself, never whatever cwd we run from.
+        report['bundle_verified'] = subprocess.run(['git', '-C', str(repo), 'bundle', 'verify', str(bundle_path.resolve())], capture_output=True, check=False).returncode == 0
         report['bundle_sha256'] = A.sha256_file(bundle_path)
     except (A.PreflightBlocker, OSError, tarfile.TarError) as exc:
         report.update({'status': 'blocked_archive_failed', 'blocker': str(exc)})
@@ -1099,12 +1130,36 @@ def desktop_gate_record(manifest, window):
             'status': 'unknown' if recorded is None else 'within_budget' if recorded <= budget else 'exceeded',
             'note': 'RETROSPECTIVE desktop gate: this tool neither started nor killed the App session, so an exceeded or unknown budget is a recorded failure, never an enforced App wall clock; the final check and accounting time is added to the recorded window'}
 
+def prepared_option_mismatches(args, manifest):
+    """Options given to a later `run` that differ from what `prepare` froze into the manifest."""
+    models = manifest.get('models') or {}
+    expand = lambda value: str(Path(value).expanduser()) if value else None
+    frozen = {'--local-model': (args.local_model, models.get('local')),
+              '--codex-cloud-model': (args.codex_cloud_model, models.get('codex_cloud')),
+              '--opencode-cloud-model': (args.opencode_cloud_model, models.get('opencode_cloud')),
+              '--child-model': (args.child_model, models.get('codex_child')),
+              '--effort': (args.effort, models.get('effort')),
+              '--timeout': (args.timeout, (manifest.get('budget') or {}).get('wall_clock_seconds_per_arm')),
+              '--codex-bin': (expand(args.codex_bin), (manifest.get('binaries') or {}).get('codex')),
+              '--opencode-bin': (expand(args.opencode_bin), (manifest.get('binaries') or {}).get('opencode')),
+              '--codex-home': (expand(args.codex_home), manifest.get('codex_home')),
+              '--opencode-db': (expand(args.opencode_db), manifest.get('opencode_db')),
+              '--opencode-config': (expand(args.opencode_config), (manifest.get('native_config') or {}).get('path')),
+              '--permission-policy': (args.permission_policy, manifest.get('permission_policy'))}
+    if args.label:
+        frozen['--label'] = (args.label, (manifest.get('machine') or {}).get('label'))
+    return [f'{flag} {given!r} differs from the prepared {kept!r}' for (flag, (given, kept)) in frozen.items() if given != kept]
+
 def cmd_run(args):
     if Path(args.out).exists():
         out = resolve_out(args.out, fresh=False)
         manifest = load_manifest(out)
         if manifest['completed_arms'] or manifest.get('live_started'):
             print(f"refusing to re-run arms already completed in {out}: {manifest['completed_arms']} (started={bool(manifest.get('live_started'))}); a partially started arm is never retried for free", file=sys.stderr)
+            return 2
+        mismatches = prepared_option_mismatches(args, manifest)
+        if mismatches:
+            print('refusing to run a prepared round with different options (nothing launched): ' + '; '.join(mismatches) + '; repeat the exact prepare options or use a fresh --out', file=sys.stderr)
             return 2
     else:
         if cmd_prepare(args) == 2 and (args.live or not (Path(args.out).exists() and (Path(args.out) / 'manifest.json').exists())):
@@ -1189,13 +1244,10 @@ def cmd_finish(args):
     manifest['completed_arms'] = sorted(set(manifest['completed_arms']) | {'codex'})
     manifest['measurement_kind'] = 'codex-app-imported+opencode-cli'
     save_manifest(out, manifest)
-    if args.live:
-        opencode = run_opencode_arm(out, manifest)
-        manifest['completed_arms'] = sorted(set(manifest['completed_arms']) | {'opencode'})
-        save_manifest(out, manifest)
-        opencode_summary = {key: opencode.get(key) for key in ('accepted', 'blockers')}
-    else:
-        opencode_summary = 'skipped: finish without --live only imports the App session'
+    opencode = run_opencode_arm(out, manifest)
+    manifest['completed_arms'] = sorted(set(manifest['completed_arms']) | {'opencode'})
+    save_manifest(out, manifest)
+    opencode_summary = {key: opencode.get(key) for key in ('accepted', 'blockers')}
     manifest['config_integrity_final'] = config_integrity(manifest)
     save_manifest(out, manifest)
     closeout(out, manifest)

@@ -34,7 +34,8 @@ python3 benchmarks/run.py run \
 
 Without `--live`, this prepares identical fixture repositories, freezes the inputs and prints
 preflight blockers and planned commands. Resolve blockers before continuing. To execute that
-prepared run, repeat the same command with `--live`:
+prepared run, repeat the same command with `--live`; options that differ from the prepared run
+are refused before anything launches:
 
 ```sh
 python3 benchmarks/run.py run \
@@ -54,7 +55,8 @@ Per-Mac paths are explicit options if the defaults differ:
 
 ```text
 --codex-bin          codex
---opencode-bin       opencode
+--opencode-bin       opencode   (the OpenCode desktop app bundles one at
+                                /Applications/OpenCode.app/Contents/Resources/opencode-cli)
 --codex-home         ~/.codex
 --opencode-config    ~/.config/opencode/opencode.json
 --opencode-db        ~/.local/share/opencode/opencode.db
@@ -81,12 +83,15 @@ python3 benchmarks/run.py compare \
 Copy each **whole output directory** between Macs, including `arms/`, `archives/`, and manifests.
 Reports and comparisons use retained evidence and launch no models. `REPORT.md` and `report.json`
 show acceptance, failed gates, usage and timing; `COMPARISON.md` and `comparison.json` compare
-compatible rounds. Execution closeout archives and verifies owned fixture repositories before
-removing them. Reports do not delete repositories; archive receipts remain in the output directory.
+compatible rounds. Anything still running in an arm's own process group after the client exits is
+terminated before the final check. Execution closeout archives and verifies owned fixture repositories
+before removing them. Reports do not delete repositories; archive receipts remain in the output directory.
 
 Passing tests alone does not accept an arm. Acceptance also requires the frozen fixture and scope,
 recorded routing/completion, budget, and an authoritative semantic verdict matching the exact diff.
-Codex cumulative input/output is counted once per session; cached input and reasoning are subsets.
+Codex cumulative input/output is counted once per session; cached input, cache-write input and
+reasoning are subsets. The Codex worker's own recorded turns must fit one assignment plus one repair,
+whichever root tool dispatched them.
 OpenCode's disjoint assistant-message counters are summed once, with unexplained maintenance kept
 separate. Failed/timeout spend remains visible. Missing usage is unknown, never zero. Savings and
 per-completed-task figures are undefined when the required evidence or completed tasks are missing.

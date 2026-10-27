@@ -25,7 +25,7 @@ OPENCODE_TOKEN_FIELDS = ('input', 'output', 'reasoning')
 OPENCODE_CACHE_FIELDS = ('read', 'write')
 OPENCODE_REQUIRED_FIELDS = ('input', 'output')
 CODEX_USAGE_FIELDS = ('input_tokens', 'output_tokens', 'total_tokens')
-CODEX_COUNTER_FIELDS = ('input_tokens', 'cached_input_tokens', 'output_tokens',
+CODEX_COUNTER_FIELDS = ('input_tokens', 'cached_input_tokens', 'cache_write_input_tokens', 'output_tokens',
                         'reasoning_output_tokens', 'total_tokens')
 ERROR_FINISHES = ('error', 'cancelled', 'canceled', 'aborted', 'failed')
 VALID_IDLE_OUTCOMES = ('ready', 'succeeded')
@@ -230,8 +230,11 @@ def validate_native_profile(snapshot, local_model):
 
 
 # --------------------------------------------------------------- Codex rollouts
-def _assistant_text(payload):
-    if payload.get('type') == 'agent_message':
+def _assistant_text(event_type, payload):
+    # An event_msg agent_message is the session's own reply.  A response_item agent_message is an
+    # inter-agent message authored by another thread (a worker reporting to the root), so it is
+    # never this session's text and can never become the root's authoritative verdict.
+    if payload.get('type') == 'agent_message' and event_type == 'event_msg':
         return str(payload.get('message') or '')
     if payload.get('type') == 'message' and payload.get('role') == 'assistant':
         return '\n'.join(p.get('text', '') for p in (payload.get('content') or [])
@@ -314,7 +317,7 @@ def scan_codex_rollout(path):
                 spawned = _spawned_id(payload.get('output'))
                 if spawned and spawned not in record['spawned_ids']:
                     record['spawned_ids'].append(spawned)
-            text = _assistant_text(payload)
+            text = _assistant_text(event.get('type'), payload)
             if text:
                 record['assistant_texts'].append(text)
     record['models'] = list(dict.fromkeys(record['models']))
@@ -355,11 +358,13 @@ def codex_disjoint(usage):
     present = {name: usage.get(name) for name in CODEX_COUNTER_FIELDS}
     clean = {name: (as_counter(value) or 0) for name, value in present.items()}
     cached, raw_input = clean['cached_input_tokens'], clean['input_tokens']
+    cache_write = clean['cache_write_input_tokens']
     reasoning, output = clean['reasoning_output_tokens'], clean['output_tokens']
     uncached = max(raw_input - cached, 0)
     missing = [n for n in CODEX_USAGE_FIELDS if usage.get(n) is None]
     invalid = counter_problems(usage, CODEX_COUNTER_FIELDS)
-    return {'uncached_input': uncached, 'cached_input': cached,
+    # cache_write_input_tokens (newer Codex) is another subset of input, reported but never added.
+    return {'uncached_input': uncached, 'cached_input': cached, 'cache_write_input': cache_write,
             'non_reasoning_output': max(output - reasoning, 0), 'reasoning_output': reasoning,
             'raw_input': raw_input, 'raw_output': output, 'raw_total': clean['total_tokens'],
             'cloud_total': uncached + cached + output,
@@ -368,9 +373,9 @@ def codex_disjoint(usage):
 
 
 def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected_child_model,
-                  expected_effort='medium', client='codex-cli'):
+                  expected_effort='medium', client='codex-cli', max_worker_turns=2):
     """Final cumulative usage per native session, counted once, failing closed."""
-    totals = dict.fromkeys(('uncached_input', 'cached_input', 'non_reasoning_output',
+    totals = dict.fromkeys(('uncached_input', 'cached_input', 'cache_write_input', 'non_reasoning_output',
                             'reasoning_output', 'cloud_total', 'raw_total'), 0)
     sessions, blockers, unexpected_models = [], [], []
     unknown_sessions, attribution_bad = [], []
@@ -384,6 +389,7 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
     malformed_rollouts = []
     descendants = max(len(ids) - 1, 0)
     root_calls, root_edit_calls, children, expected_children = None, 0, 0, 0
+    worker_turns = 0
     for sid in ids:
         rec = catalog.get(sid)
         if rec is None:
@@ -429,6 +435,7 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
             parts = (tokens['uncached_input'] + tokens['cached_input'] + tokens['non_reasoning_output']
                      + tokens['reasoning_output'])
             subsets_ok = (tokens['cached_input'] <= tokens['raw_input']
+                          and tokens['cache_write_input'] <= tokens['raw_input']
                           and tokens['reasoning_output'] <= tokens['raw_output'])
             if not tokens['complete']:
                 status = 'incomplete'
@@ -471,9 +478,13 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
                                 'descendant session(s) exist; an unrollowned spawn is never accepted')
         else:
             children += 1
+            # The worker's own task_started markers count the turns it really ran, whichever root
+            # tool (spawn_agent, followup_task, send_message, send_input...) dispatched them.
+            worker_turns += list(rec.get('completion_markers') or []).count('task_started')
             if models == [expected_child_model] and efforts == [expected_effort] and completion == 'complete':
                 expected_children += 1
         sessions.append({'session_id': sid, 'parent_id': rec['parent_id'], 'role': role, 'models': models,
+                         'turns': list(rec.get('completion_markers') or []).count('task_started'),
                          'efforts': efforts, 'expected_model': expected, 'expected_effort': expected_effort,
                          'completion': completion, 'completion_markers': list(rec.get('completion_markers') or []),
                          'spawn_calls': as_int(rec.get('spawn_calls')), 'repair_calls': as_int(rec.get('repair_calls')),
@@ -490,9 +501,12 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
         blockers.append(f'expected exactly one Luna child session, found {children}')
     elif expected_children == 0:
         blockers.append(f'no child ran the expected {expected_child_model} {expected_effort} routing')
-    dispatch_ok = not root_calls or (root_calls['spawn_agent'] <= 1
-                                     and root_calls['spawn_agent'] + root_calls['followup'] <= 2
-                                     and root_calls['spawn_agent'] <= descendants)
+    if worker_turns > max_worker_turns:
+        blockers.append(f'the delegated worker ran {worker_turns} turn(s); the frozen budget is one initial '
+                        f'assignment plus at most one repair ({max_worker_turns} turns)')
+    dispatch_ok = worker_turns <= max_worker_turns and (not root_calls or (
+        root_calls['spawn_agent'] <= 1 and root_calls['spawn_agent'] + root_calls['followup'] <= 2
+        and root_calls['spawn_agent'] <= descendants))
     routing_ok = (root_thread_id in catalog and not unexpected_models and not missing_rollouts
                   and not duplicate_ids and not effort_mismatch and not incomplete_sessions
                   and not root_edit_calls and dispatch_ok and children == 1 and expected_children > 0)
@@ -500,8 +514,10 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
     final_texts = (catalog.get(root_thread_id) or {}).get('assistant_texts') or []
     return {'client': client, 'protocol': PROTOCOL, 'root_thread_id': root_thread_id, 'sessions': sessions,
             'session_count': len(sessions), 'children': children, 'expected_child_sessions': expected_children,
+            'worker_turns': worker_turns, 'max_worker_turns': max_worker_turns,
             'totals': totals, 'cloud_total': totals['cloud_total'] if usage_complete else None,
             'known_lower_bound': totals['cloud_total'], 'cached_input_total': totals['cached_input'],
+            'cache_write_input_total': totals['cache_write_input'],
             'reasoning_output_total': totals['reasoning_output'], 'usage_complete': usage_complete,
             'unexpected_models': unexpected_models, 'routing_ok': routing_ok, 'blockers': blockers,
             'missing_rollouts': missing_rollouts, 'effort_mismatch': effort_mismatch,
