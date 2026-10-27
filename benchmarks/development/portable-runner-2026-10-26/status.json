@@ -1,0 +1,69 @@
+{
+  "status": "BLOCKED_NOT_A_RUNNABLE_RELEASE",
+  "evidence_root": "/Users/oleksii.naboichenko/benchmark-evidence/portable-benchmark-build-20261027T000349Z",
+  "candidate_patch_sha256": "7807af0adf3a1162117367066d3f97209ecfabf15bfc2ccbdb450b6cf7f87486",
+  "source_bytes": 136809,
+  "native_source_ceiling_bytes": 131072,
+  "offline_tests_passed": 29,
+  "live_benchmark_arms": 0,
+  "accepted_benchmark_tasks": 0,
+  "required_negative_regressions": "not added; same 29 tests remain",
+  "package_incomplete_reasons": [
+    "Candidate changed since verification or verified fingerprint unavailable.",
+    "Source context truncated: benchmarks/test_runner_helpers.py; inspect full file.",
+    "Source context truncated: docs/PORTABLE-BENCHMARK-PLAN.md; inspect full file.",
+    "Required job verification/audit did not pass or is unavailable."
+  ],
+  "known_local_authoring_tokens_lower_bound": 5348329,
+  "local_jobs_with_missing_usage": 3,
+  "authoring_job_seconds": 2976.6200000000003,
+  "cleanup": [
+    {
+      "job_id": "20261027T000349Z-portable-cross-mac-benchmark-69ff96",
+      "status": "rejected",
+      "archive_verified": true,
+      "bundle_sha256": "67c9112063b997c85b665e03f1e20fb885762f35266b70a47b77781230397bca",
+      "recovery_ref": "refs/local-worker/archive/20261027T000349Z-portable-cross-mac-benchmark-69ff96",
+      "recovery_commit": "b17c20656d9dd20e05978574118439ac2d7fe541",
+      "receipt_path": "/Users/oleksii.naboichenko/benchmark-evidence/portable-benchmark-build-20261027T000349Z/state/reviews/20261027T000349Z-portable-cross-mac-benchmark-69ff96/decision-result.json"
+    },
+    {
+      "job_id": "20261027T002522Z-complete-portable-benchmark-12980e",
+      "status": "rejected",
+      "archive_verified": true,
+      "bundle_sha256": "261da1852f99f62a38f3d86aa49c6446e1b757955b7f79e0cd8ae9f87f4a7e2b",
+      "recovery_ref": "refs/local-worker/archive/20261027T002522Z-complete-portable-benchmark-12980e",
+      "recovery_commit": "755796597a84bc16f543ada27c32fa94af35268b",
+      "receipt_path": "/Users/oleksii.naboichenko/benchmark-evidence/portable-benchmark-build-20261027T000349Z/repair-state/reviews/20261027T002522Z-complete-portable-benchmark-12980e/decision-result.json"
+    },
+    {
+      "job_id": "20261027T004609Z-deliver-portable-benchmark-29b40c",
+      "status": "rejected",
+      "archive_verified": true,
+      "bundle_sha256": "83c3ec088fcaf50e614b10efebcaca40d6216b80d25b465b81fc97266ddc1c43",
+      "recovery_ref": "refs/local-worker/archive/20261027T004609Z-deliver-portable-benchmark-29b40c",
+      "recovery_commit": "cbd9c67eeaa9a5f81b1f9c85515a098696e437b6",
+      "receipt_path": "/Users/oleksii.naboichenko/benchmark-evidence/portable-benchmark-build-20261027T000349Z/delivery-state/reviews/20261027T004609Z-deliver-portable-benchmark-29b40c/decision-result.json"
+    },
+    {
+      "job_id": "20261027T010118Z-verify-portable-delivery-8b22ff",
+      "status": "rejected",
+      "archive_verified": true,
+      "bundle_sha256": "bc3464fdc879fcbf6872dbab2dc1ed7cf9ba8419eb961520fae2a51cbb095c0e",
+      "recovery_ref": "refs/local-worker/archive/20261027T010118Z-verify-portable-delivery-8b22ff",
+      "recovery_commit": "916e6320199cbd3b0457bf7b9682b7bd26593473",
+      "receipt_path": "/Users/oleksii.naboichenko/benchmark-evidence/portable-benchmark-build-20261027T000349Z/final-state/reviews/20261027T010118Z-verify-portable-delivery-8b22ff/decision-result.json"
+    },
+    {
+      "job_id": "20261027T011025Z-fail-closed-benchmark-8b00de",
+      "status": "rejected",
+      "archive_verified": true,
+      "bundle_sha256": "d71ebf706a30802aa98a501f2deec22688ca7bbfa75dc0ce9af0618e44b02d33",
+      "recovery_ref": "refs/local-worker/archive/20261027T011025Z-fail-closed-benchmark-8b00de",
+      "recovery_commit": "9fc922fde6137c4186d6344c2ed32d1f7c65332d",
+      "receipt_path": "/Users/oleksii.naboichenko/benchmark-evidence/portable-benchmark-build-20261027T000349Z/semantic-state/reviews/20261027T011025Z-fail-closed-benchmark-8b00de/decision-result.json"
+    }
+  ],
+  "cloud_snapshot": "planner-session-cloud-snapshot.json",
+  "no_push": true
+}

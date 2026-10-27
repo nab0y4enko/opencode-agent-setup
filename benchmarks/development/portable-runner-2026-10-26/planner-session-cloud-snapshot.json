@@ -1,0 +1,20 @@
+{
+  "status": "in-turn snapshot; lower bound, not final",
+  "scope": "entire current planner session including earlier investigation, configuration and reporting; not an isolated runner-build measurement",
+  "thread": "01a17a67-e025-7371-bef9-3a883c8b823e",
+  "source": "/Users/oleksii.naboichenko/.codex/sessions/2026/10/26/rollout-2026-10-26T18-49-50-01a17a67-e025-7371-bef9-3a883c8b823e.jsonl",
+  "usage": {
+    "input_tokens": 43700532,
+    "cached_input_tokens": 43170688,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 215218,
+    "reasoning_output_tokens": 141448,
+    "total_tokens": 43915750
+  },
+  "counting": "input+output once; cached input is included in input, reasoning included in output",
+  "raw_cloud_lower_bound": 43915750,
+  "live_benchmark_arms_during_runner_build": 0,
+  "benchmark_completed_tasks_during_runner_build": 0,
+  "cloud_tokens_per_completed_benchmark_task": null,
+  "unobserved_external_usage": "unavailable"
+}
