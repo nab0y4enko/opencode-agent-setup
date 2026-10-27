@@ -3,7 +3,8 @@
 This describes how the frozen round in `results/2026-10-26-round-1/` was produced and how to
 produce a **new** comparable round. It is historical instrumentation. It is not a daily
 workflow: day to day you just open OpenCode, select Hybrid, and select your cloud model.
-No automation, no polling, no new runner or controller is added by this package.
+That historical package added no runner. For the current portable two-arm CLI, use the
+[README](../README.md); the procedure below remains the record of the older three-arm experiment.
 
 ## Fixed procedure
 

@@ -1,106 +1,137 @@
-# Portable native OpenCode config + frozen benchmark
+# Native OpenCode profile and portable benchmark
 
-Obsolete repo code was wiped from the working tree (Git history and the archive/recovery
-bundle outside the repo still hold it) and replaced with **native OpenCode configuration
-only** plus the frozen round-1 benchmark package. There is deliberately **no framework, no
-setup CLI, no installed wrapper, no plugin/addon and no controller** here.
+This repository provides a native single-worker Hybrid profile and a Python standard-library
+benchmark CLI. The benchmark runs the same frozen TTL-cache task through Codex (cloud planner
+and one cloud worker) and OpenCode Hybrid (cloud coordinator/reviewer and one local worker).
 
+## Start on another Mac
+
+Install Python 3.9 or newer, Git, Codex CLI and OpenCode CLI. Authenticate both clients and configure your
+local model server. No Local Worker plugin or Python packages are needed to **run** this benchmark.
+The native database reader targets OpenCode's `session_v2` / `session_message` schema; unsupported
+schemas produce a blocked result, not invented usage. The config reader requires strict JSON.
+
+Clone this branch, or copy the checkout, then run from its root:
+
+```sh
+git clone --branch native-patcher https://github.com/nab0y4enko/opencode-agent-setup.git
+cd opencode-agent-setup
+python3 -B -m unittest discover -s benchmarks -p 'test_*.py' -v
+python3 benchmarks/run.py --help
 ```
-config/opencode.json            serial single-worker Hybrid profile (portable)
-config/parallel-up-to-4.json    optional behavioural overlay, NOT activated or measured
-config/local-model.txt          local model id sidecar (example: qwen-3.8-nf-splash)
-config/omlx-url.txt             local OpenAI-compatible endpoint sidecar
-config/omlx.key.example         placeholder copy -> config/omlx.key (ignored, never committed)
-benchmarks/                     frozen fixture, legacy instrumentation, protocol, round-1 results
-docs/PLAN.md                    original plan + user scope update
+
+The tests use fake clients and temporary databases. They make no paid model calls.
+
+Configure the native profile as described below. Replace `YOUR_SERVED_MODEL_ID` with the actual
+model served on this Mac. Choose a new output directory **outside the checkout**:
+
+```sh
+python3 benchmarks/run.py run \
+  --out "$HOME/benchmark-runs/mac-a-001" \
+  --label mac-a \
+  --local-model 'omlx/YOUR_SERVED_MODEL_ID'
 ```
 
-## Outcome and honest limits
+Without `--live`, this prepares identical fixture repositories, freezes the inputs and prints
+preflight blockers and planned commands. Resolve blockers before continuing. To execute that
+prepared run, repeat the same command with `--live`:
 
-Measured on one Mac: single-worker Hybrid config, direct and scripted benchmark arms accepted,
-**native Hybrid arm failed/rejected** (worker prepended an env assignment and a compound
-command to an allowed check, permission denied it, and the coordinator wrongly let that worker
-denial block its own authorized final check). See
-`benchmarks/results/2026-10-26-round-1/RESULTS.md`. The prompt wording in `config/opencode.json`
-that addresses this is an **offline-only, unvalidated correction** — no model was run to
-re-measure anything in this package, so nothing here claims a native pass or a token saving.
+```sh
+python3 benchmarks/run.py run \
+  --out "$HOME/benchmark-runs/mac-a-001" \
+  --label mac-a \
+  --local-model 'omlx/YOUR_SERVED_MODEL_ID' \
+  --live
+```
 
-## Install: merge, do not overwrite
+**Live runs consume model usage.** They default to a 180-second budget per arm, one initial
+worker assignment and at most one repair. The default cloud model is `gpt-6.1-sol`, the Codex
+worker is `gpt-6-luna`, and reasoning is medium. Both arms must use the same cloud model.
+The CLI overrides apply to the benchmark invocation; the runner does not write global settings.
+A started run cannot be restarted for free: use a fresh output directory for another attempt.
 
-`config/opencode.json` is a **partial** profile. Merge the pieces you want into
-`~/.config/opencode/opencode.json` **by hand**, keeping your existing `provider`/`providers`
-entries and your own global cloud `model` selection. This file intentionally sets **no**
-top-level `model` and **no** `build`/`plan`/`compaction` model overrides, so your chosen cloud
-model is inherited; `hybrid` and `review` carry no `model` either (review runs on the
-inherited caller model). Do not blind-copy this file over a working global config.
+Per-Mac paths are explicit options if the defaults differ:
 
-Copy the sidecars next to wherever the config lives — `{file:./x}` references resolve relative
-to the **config file's directory**, so they work identically in desktop and CLI without any
-shell environment variables:
+```text
+--codex-bin          codex
+--opencode-bin       opencode
+--codex-home         ~/.codex
+--opencode-config    ~/.config/opencode/opencode.json
+--opencode-db        ~/.local/share/opencode/opencode.db
+--codex-cloud-model  gpt-6.1-sol
+--opencode-cloud-model openai/gpt-6.1-sol#medium
+--child-model        gpt-6-luna
+--timeout           180
+```
 
-1. `config/local-model.txt` → the model id your local server actually serves.
-2. `config/omlx-url.txt` → e.g. `http://127.0.0.1:8000/v1`.
-3. `config/omlx.key.example` → copy to `config/omlx.key` and **replace the entire file
-   contents with the single key line** your own local OpenAI-compatible server expects.
-   Native `{file:...}` substitution reads the **whole file** (it only trims surrounding
-   whitespace), so the key file must be exactly one line and must hold **no comments** — the
-   example file is one placeholder line for exactly that reason. `config/omlx.key` is
-   git-ignored; never commit a secret, and never commit a real key into a shared example file.
+`--opencode-config` must identify the installed profile OpenCode actually uses; it is inspected
+and fingerprinted, not installed or merged by the benchmark. Keep the cloud models and task
+settings identical across Macs. Hardware and local-model differences are recorded separately.
 
-The chosen local model must support tool calls through the OpenAI-compatible endpoint;
-confirm the served model id on the other Mac before using this profile.
+## Read and compare results
 
-**Then edit `providers.omlx.models[...].limit`.** `context: 262144` / `output: 8192` are the
-numbers **USED in the measured round-1 profile** on one Mac with one model build; they are
-**not** discovered universal maxima for the model or for OpenCode. On another Mac you **must**
-set context and output to that machine's actual model values — do not assume these numbers
-hold elsewhere. They are plain JSON numbers edited directly in `config/opencode.json` (the
-`{file:...}` sidecars carry only the model id, endpoint URL and key). `name`/key substitution
-is native (`{file:./local-model.txt}`), so editing that sidecar retargets `general`,
-`explore`, `title` and `summary` in one place.
+```sh
+python3 benchmarks/run.py report "$HOME/benchmark-runs/mac-a-001"
+python3 benchmarks/run.py compare \
+  "$HOME/benchmark-runs/mac-a-001" \
+  "$HOME/benchmark-runs/mac-b-001" \
+  --out-dir "$HOME/benchmark-runs/comparison-001"
+```
 
-Native edit-tool rules deny `*/.config/opencode/*` and `*/.git/*`; they do not provide
-filesystem confinement for executable tests. `subagent_depth` stays `1`, and shell access
-is deny-by-default plus an explicit allow-list.
+Copy each **whole output directory** between Macs, including `arms/`, `archives/`, and manifests.
+Reports and comparisons use retained evidence and launch no models. `REPORT.md` and `report.json`
+show acceptance, failed gates, usage and timing; `COMPARISON.md` and `comparison.json` compare
+compatible rounds. Execution closeout archives and verifies owned fixture repositories before
+removing them. Reports do not delete repositories; archive receipts remain in the output directory.
 
-## Serial vs optional 4-parallel
+Passing tests alone does not accept an arm. Acceptance also requires the frozen fixture and scope,
+recorded routing/completion, budget, and an authoritative semantic verdict matching the exact diff.
+Codex cumulative input/output is counted once per session; cached input and reasoning are subsets.
+OpenCode's disjoint assistant-message counters are summed once, with unexplained maintenance kept
+separate. Failed/timeout spend remains visible. Missing usage is unknown, never zero. Savings and
+per-completed-task figures are undefined when the required evidence or completed tasks are missing.
+Raw tokens are not subscription quota debits or prices; cache differences limit cross-Mac comparisons.
 
-Use `config/opencode.json`: **one** general worker at a time — the right default for small,
-shared-file or order-dependent work. `config/parallel-up-to-4.json` is an overlay whose
-content is the `hybrid` `description`/`system` text **plus `experimental.subagent_depth: 1`**,
-so activating it keeps depth at 1 explicitly instead of inheriting some other value. Its
-hybrid text permits **at most four concurrently
-active general tasks, and only for independent work on disjoint paths/resources**, with
-per-child bounded repair, child-session reuse, no recursive delegation, waiting by native
-completion notifications (no polling), then coordinator verification of the combined tree and
-one inherited-model semantic review of the exact combined digest.
+## Optional Codex desktop import
 
-**"4" is prompt guidance, not a scheduler cap.** OpenCode 2.1.4 has no measured
-`max_concurrency` key — do not invent one — and `experimental.subagent_depth: 1` must stay 1
-(depth 4 would be recursive delegation, not more parallelism). This overlay was **not**
-activated or measured on this Mac, so it cannot be described as faster.
+Use `prepare` with the same options as `run`. Follow the generated `DESKTOP.md` and paste the exact
+`prompts/codex-app.txt` into a new desktop chat in the prepared Codex fixture repository. Then:
 
-## Test fixture
+```sh
+python3 benchmarks/run.py finish "$HOME/benchmark-runs/mac-a-app-001" \
+  --codex-thread YOUR_ROOT_THREAD_ID --live
+```
 
-`benchmarks/fixture/` is a disposable RED suite: `python3 -m unittest -v` from that directory
-expects **12 tests, 3 failures** (boundary expiry cases). The failure is the point; the fix is
-the benchmark task in `benchmarks/results/2026-10-26-round-1/manifest.json`.
+This imports the actual root and descendants, verifies the result, and launches Hybrid only after
+an accepted import. Desktop runs are labelled separately from CLI runs. Their session budget is
+checked retrospectively; the runner cannot terminate a desktop session. Final verification time
+is included in the arm's elapsed-time check. Do not transfer solutions or evidence between arms.
 
-## Legacy / instrumentation boundary
+## Install the native profile
 
-`benchmarks/legacy/` and `benchmarks/results/` are historical benchmark-only instrumentation,
-**not** daily native commands, and they contain absolute Mac paths for provenance. The archived
-launcher is **not** portable unchanged: it hardcodes the models measured here, so per-Mac
-adaptation is a *new* version needing a fresh frozen manifest
-(see `benchmarks/PROTOCOL.md`). No new runner or controller is provided.
+Merge `config/opencode.json` into your installed OpenCode JSON **without replacing your existing
+providers or global model selection**. The profile leaves Hybrid/review on the caller's cloud model
+and assigns `general`, `explore`, `title`, and `summary` to the configured local provider.
 
-## Native references
+Place the sidecars next to the installed JSON:
 
-* Raw `{file:...}` / `{env:...}` config substitution:
-  <https://raw.githubusercontent.com/anomalyco/opencode/v2.1.4/packages/core/src/config/variable.ts>
-* `experimental` subagent depth vs (absent) concurrency:
-  <https://raw.githubusercontent.com/anomalyco/opencode/v2.1.4/packages/schema/src/config/experimental.ts>
+- `local-model.txt`: the actual served local model ID.
+- `omlx-url.txt`: the local OpenAI-compatible endpoint, for example `http://127.0.0.1:8000/v1`.
+- Copy `omlx.key.example` to `omlx.key` and replace its entire content with the single key line.
+  Keep this secret out of Git. Do not add comments to a substituted key file.
 
-`tool_output` native `max_lines`/`max_bytes` does exist in 2.1.4 but was **not** tested here:
-at most a future bounded-output experiment. Measured-profile tuning is deliberately **not**
-added now.
+Edit the local model's context/output limits to match that Mac's actual model build. The supplied
+262144/8192 values are examples from an earlier measured profile, not discovered universal limits.
+The local model must support tool calls. Native permission denials remain in force.
+
+`config/parallel-up-to-4.json` is an optional, unqualified overlay; the benchmark uses one worker.
+Its “four” is prompt guidance, not a verified scheduler limit.
+
+## Historical evidence
+
+`benchmarks/fixture/` intentionally starts with 12 tests and three failing expiry-boundary cases.
+Do not fix that baseline in this repository. `benchmarks/results/`, `benchmarks/legacy/`, and
+`benchmarks/development/` preserve earlier runs and rejected candidates. They are not fresh results
+from this runner. The old protocol in `benchmarks/PROTOCOL.md` documents those historical rounds.
+Offline runner tests establish software behavior; they do not establish a live benchmark victory
+or a measured token saving.

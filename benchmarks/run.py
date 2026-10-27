@@ -31,7 +31,8 @@ DEFAULT_CLOUD_OPENCODE = 'openai/gpt-6.1-sol#medium'
 DEFAULT_CHILD_MODEL = 'gpt-6-luna'
 DEFAULT_EFFORT = 'medium'
 DEFAULT_BUDGET = 180
-ALLOWED_EFFORTS = ('minimal', 'low', 'medium', 'high')
+CLIENT_EFFORTS = ('minimal', 'low', 'medium', 'high')
+SUPPORTED_EFFORTS = ('medium',)
 CHECK = ['python3', '-m', 'unittest', '-v']
 ALLOWED_CHANGED = ['ttl_cache.py']
 FROZEN_FILES = ['README.md', 'test_ttl_cache.py']
@@ -55,9 +56,21 @@ def git(repo, *args):
     return proc.stdout.strip()
 
 def tool_version(binary):
+    """Version text for machine info: an absent or unrunnable tool is 'unavailable', never a crash.
+
+    Machine information is collected during preparation on every Mac, where either client may simply
+    not be installed.  A missing executable is reported as 'unavailable' here; preflight is what turns
+    an absent binary into a readable launch blocker before anything is launched.
+    """
     if not binary:
         return 'unavailable'
-    proc = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=30, check=False)
+    resolved = str(Path(binary).expanduser())
+    if not (os.path.isfile(resolved) or shutil.which(resolved)):
+        return 'unavailable'
+    try:
+        proc = subprocess.run([resolved, '--version'], capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return 'unavailable'
     text = (proc.stdout or proc.stderr).strip().splitlines()
     return text[0][:120] if proc.returncode == 0 and text else 'unavailable'
 
@@ -90,16 +103,24 @@ def config_integrity(manifest):
     return {'status': 'unavailable', 'path': path, 'frozen_sha256': frozen, 'current_sha256': None, 'changed': None, 'source': 'live'}
 
 def report_config_integrity(manifest):
-    """Offline report: judge the config from retained evidence when the original file is absent."""
-    integrity = config_integrity(manifest)
-    if integrity['status'] in ('missing', 'unavailable'):
-        retained = manifest.get('config_integrity_final')
-        if retained:
-            merged = dict(retained)
-            merged.update({'live_status': integrity['status'], 'source': 'retained at execution closeout',
-                           'changed': bool(retained.get('changed'))})
-            return merged
-    return integrity
+    """Offline report: the installed-config verdict comes ONLY from the retained execution closeout.
+
+    A report never re-reads the live installed config.  The original file may be edited or deleted
+    long after the run finished, and that later edit must not rewrite measured history.  A config
+    edited WHILE the arms were measured is still refused, because the closeout receipt captured at
+    execution time already recorded the differing digest.  With no closeout receipt at all the
+    configuration window is unverifiable, so acceptance can never be claimed.
+    """
+    frozen = manifest.get('native_config') or {}
+    retained = manifest.get('config_integrity_final')
+    if not isinstance(retained, dict) or not retained:
+        return {'status': 'unrecorded', 'path': frozen.get('path'), 'frozen_sha256': frozen.get('raw_sha256'),
+                'current_sha256': None, 'changed': None, 'verified': False, 'live_probe': False,
+                'source': 'retained at execution closeout'}
+    merged = dict(retained)
+    merged.update({'source': 'retained at execution closeout', 'changed': bool(retained.get('changed')),
+                   'verified': retained.get('status') == 'unchanged', 'live_probe': False})
+    return merged
 
 def machine_info(bins):
     pages = os.sysconf('SC_PHYS_PAGES') if hasattr(os, 'sysconf') else 0
@@ -174,12 +195,21 @@ def frozen_manifest_blockers(manifest):
     return []
 
 def model_blockers(manifest):
-    """An unmatched cloud model or effort is refused before anything is launched or billed."""
+    """An unmatched cloud model or an unverifiable effort is refused before anything launches or bills.
+
+    Both arms must run the SAME bare cloud model (the Codex root model and the provider-stripped Hybrid
+    coordinator model), and the Hybrid model string must pin the effort explicitly.  Only
+    SUPPORTED_EFFORTS is verifiable here: native accounting reads the reasoning variant out of the
+    recorded sessions and knows exactly one value, so a different effort could never be verified and is
+    refused instead of being measured against the wrong expectation.
+    """
     models = manifest.get('models') or {}
     effort = models.get('effort')
     blockers = []
-    if effort not in ALLOWED_EFFORTS:
-        blockers.append(f'reasoning effort {effort!r} is not one of {list(ALLOWED_EFFORTS)}; an unmatched effort is refused before launch')
+    if effort not in SUPPORTED_EFFORTS:
+        blockers.append(f'reasoning effort {effort!r} is not the supported {list(SUPPORTED_EFFORTS)} effort; native accounting '
+                        f'verifies only {"/".join(SUPPORTED_EFFORTS)} routing (the clients would accept {list(CLIENT_EFFORTS)}), '
+                        'so an unverifiable effort is refused before launch instead of being billed unverified')
     cloud = str(models.get('codex_cloud') or '')
     if not cloud or '/' in cloud:
         blockers.append(f'--codex-cloud-model {cloud!r} must be a bare cloud model id without a provider prefix; a local or routed id is never the cloud baseline')
@@ -190,6 +220,12 @@ def model_blockers(manifest):
         blockers.append(f'--opencode-cloud-model {routed_model!r} must be provider/model or provider/model#effort; an unmatched cloud model is refused before launch')
     elif routed_effort and routed_effort != effort:
         blockers.append(f'--opencode-cloud-model {routed_model!r} pins effort {routed_effort!r} while the frozen effort is {effort!r}; a mismatched effort is refused before launch')
+    elif not hash_sep or not routed_effort:
+        blockers.append(f'--opencode-cloud-model {routed_model!r} names no explicit #effort; the Hybrid coordinator effort must be '
+                        f'pinned in the model string and equal the frozen {effort!r} effort, never inferred from a default')
+    elif cloud and model != cloud:
+        blockers.append(f'the two arms must run the same cloud model: the Codex root is {cloud!r} while the Hybrid coordinator is '
+                        f'{model!r}; one round measures one cloud model on both sides, so a cross-model round is refused pre-launch')
     elif provider == str(models.get('local') or '').split('/', 1)[0]:
         blockers.append(f'the Hybrid coordinator model {routed_model!r} resolves to the local provider {provider!r}; the cloud side of the ratio cannot be measured on the local worker')
     child = str(models.get('codex_child') or '')
@@ -198,6 +234,13 @@ def model_blockers(manifest):
     elif child == cloud:
         blockers.append(f'--child-model {child!r} equals the cloud root model; the frozen arm shape needs a distinct delegated worker model')
     return blockers
+
+def budget_blockers(seconds):
+    """A nonpositive frozen per-arm wall clock is refused before any checkout, launch or model call."""
+    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or seconds <= 0:
+        return [f'--timeout {seconds!r} must be a positive number of seconds; a nonpositive frozen budget leaves a launched arm '
+                'with no real deadline to be killed at, so the round is refused before preparation or launch']
+    return []
 
 def symlinked_components(path, root):
     """Symlinked path components at or below the run tree, checked lexically (nothing is followed)."""
@@ -215,6 +258,9 @@ def symlinked_components(path, root):
 DESKTOP_STEPS = "Codex desktop App import (manual, real App session — never labelled CLI):\n1. In the Codex App open the ALREADY PREPARED project folder listed below as its own project.\n   Do not copy any other arm's diff, log or verdict into it (no solution transfer).\n2. Select the cloud Sol model with medium reasoning; delegated workers must be Luna medium.\n3. Paste exactly the frozen prompt in prompts/codex-app.txt (same task bytes as the CLI arms)\n   and let the App session finish on its own.  The frozen budget is checked RETROSPECTIVELY from\n   the recorded session window; this tool cannot kill a desktop App session.\n4. Then run:  python3 benchmarks/run.py finish OUT --codex-thread <root thread id> --live\n   which imports the real root + descendant rollouts, verifies routing/digest/verdict/time, and\n   then launches the native OpenCode Hybrid arm on the identical fixture.\n"
 
 def cmd_prepare(args):
+    for blocker in budget_blockers(args.timeout):
+        print(f'BLOCKER: {blocker}', file=sys.stderr)
+        return 2
     out = resolve_out(args.out, fresh=True)
     for blocker in model_blockers({'models': {'codex_cloud': args.codex_cloud_model, 'codex_child': args.child_model, 'opencode_cloud': args.opencode_cloud_model, 'local': args.local_model, 'effort': args.effort}}):
         print(f'BLOCKER: {blocker}', file=sys.stderr)
@@ -451,10 +497,22 @@ def account_codex_evidence(manifest, evidence, root_id, client, codex_home):
     ids = A.codex_tree(catalog, root_id)
     return (A.account_codex(catalog, ids, root_thread_id=root_id, client=client, **codex_expectations(manifest)), [source])
 
+# Every artifact an offline acceptance decision is read from, sealed at execution time.  result.json
+# carries the arm's own claims (check tests/returncode, duration, scope), the check and execution
+# logs/receipts are the captured proof behind those claims, and the patch, rollouts and native records
+# are the measured work itself.  attempts.json stays unsealed on purpose: it is an append-only failure
+# ledger that later attempts legitimately extend.
+SEALED_EVIDENCE = ('result.json', 'accounting.json', 'complete.patch', 'native-records.json',
+                   'arm.stdout.log', 'arm.stderr.log', 'arm.execution.json', 'final.check.log')
+
 def seal_arm_evidence(evidence):
-    """Digest every retained artifact at execution time so an offline report can verify it."""
+    """Digest every retained artifact at execution time so an offline report can verify it.
+
+    Sealing the captured logs and the recorded result as well as the patch, rollouts and native records
+    means a later edit to a saved returncode, test count, duration or scope cannot keep an arm accepted.
+    """
     entries = {}
-    for name in ('complete.patch', 'native-records.json'):
+    for name in SEALED_EVIDENCE:
         if (evidence / name).exists():
             entries[name] = A.sha256_file(evidence / name)
     rollouts = evidence / 'rollouts-sha256.json'
@@ -852,7 +910,9 @@ def reaccount_arm(out, manifest, arm):
             state['verified'] = False
             return recompute_offline_acceptance(manifest, arm, retained, retained.get('accounting') or unknown_cost_accounting('no archived root thread id'), state)
         try:
-            (accounting, sources) = account_codex_evidence(manifest, evidence, root_id, retained.get('client'), Path(manifest['codex_home']) if manifest.get('codex_home') else None)
+            # Offline re-accounting passes NO live CODEX_HOME: a missing or emptied archive fails
+            # closed instead of quietly falling back to whatever sessions the original machine kept.
+            (accounting, sources) = account_codex_evidence(manifest, evidence, root_id, retained.get('client'), None)
             retained['reaccount_source'] = sources
         except A.PreflightBlocker as exc:
             accounting = retained.get('accounting') or unknown_cost_accounting('archived rollouts unreadable')
@@ -895,6 +955,11 @@ def build_report(out, manifest):
             result['accepted'] = False
             result.setdefault('gates', {})['installed_native_config_unchanged'] = False
             result['blockers'] = list(result.get('blockers') or []) + [f"installed native config {integrity['path']} changed from {str(integrity['frozen_sha256'])[:12]} to {str(integrity['current_sha256'])[:12]} while this run was measured; a global configuration edit invalidates every arm"]
+    elif not integrity.get('verified'):
+        for result in arms.values():
+            result['accepted'] = False
+            result.setdefault('gates', {})['installed_native_config_unchanged'] = False
+            result['blockers'] = list(result.get('blockers') or []) + [f"the execution closeout recorded native config status {integrity.get('status')!r} for {str(integrity.get('path'))}; an installed native config whose integrity window was never captured unchanged cannot claim verified acceptance"]
     seal_blockers = frozen_manifest_blockers(manifest)
     if seal_blockers:
         for result in arms.values():
@@ -1006,6 +1071,7 @@ def preflight(manifest, out=None, launch_arms=('codex', 'opencode')):
     blockers = list(manifest['native_profile']['blockers'])
     blockers.extend(frozen_manifest_blockers(manifest))
     blockers.extend(model_blockers(manifest))
+    blockers.extend(budget_blockers((manifest.get('budget') or {}).get('wall_clock_seconds_per_arm')))
     for name in ('codex', 'opencode'):
         binary = manifest['binaries'].get(name)
         if not binary:
@@ -1146,10 +1212,7 @@ def cmd_report(args):
 def cmd_compare(args):
     outs = [resolve_out(raw, fresh=False) for raw in args.outs]
     (blockers, differences) = compare_runs(outs)
-    reports = {}
-    for out in outs:
-        path = out / 'report.json'
-        reports[str(out)] = json.loads(path.read_text(encoding='utf-8')) if path.exists() else build_report(out, load_manifest(out))
+    reports = {str(out): build_report(out, load_manifest(out)) for out in outs}
     rows = []
     for (label, report) in reports.items():
         for (arm, result) in sorted(report['arms'].items()):
@@ -1159,7 +1222,7 @@ def cmd_compare(args):
     ratios = {}
     for (label, report) in reports.items():
         ratios[label] = report['metrics']['ratio']
-    comparison = {'blockers': blockers, 'compatibility_differences': differences, 'rows': rows, 'ratios': ratios, 'caveats': ['cached prefix state differs per Mac and stays an unknown caveat', 'raw tokens are not quota or price', 'failed/timeout cost is retained, never dropped']}
+    comparison = {'blockers': blockers, 'compatibility_differences': differences, 'rows': rows, 'ratios': ratios, 'caveats': ['every report here is recomputed from sealed retained evidence; a cached report.json is never trusted', 'cached prefix state differs per Mac and stays an unknown caveat', 'raw tokens are not quota or price', 'failed/timeout cost is retained, never dropped']}
     target = Path(args.out_dir).resolve() if args.out_dir else outs[0]
     target.mkdir(parents=True, exist_ok=True)
     (target / 'comparison.json').write_text(json.dumps(comparison, indent=2), encoding='utf-8')
