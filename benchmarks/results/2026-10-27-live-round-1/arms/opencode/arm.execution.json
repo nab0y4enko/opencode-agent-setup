@@ -1,0 +1,35 @@
+{
+  "argv": [
+    "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
+    "run",
+    "--standalone",
+    "--format",
+    "json",
+    "--agent",
+    "hybrid",
+    "--model",
+    "openai/gpt-6.1-sol#medium",
+    "Fix the TTLCache expiry behavior documented in README.md. Change only ttl_cache.py. Preserve all twelve existing test cases and all other behavior. Do not edit README.md or test_ttl_cache.py, add files, install dependencies, commit, push, change configuration, or launch other model commands. Required checks: python3 -m unittest -v from the repo root. Capture full logs outside the repo. Inspect relevant source/tests and perform substantive semantic review, not just test acceptance. Use git diff --binary HEAD as the complete tracked diff; ensure git ls-files --others --exclude-standard reports no source files; hash that exact diff using shasum -a 256. End with VERDICT: PASS <actual diff sha256> only after checks and semantic review accept the exact current patch, otherwise VERDICT: FAIL <sha256>. One initial implementation and at most ONE repair; no repeated model status polling. Never weaken a check or bypass a denied command. Stop visibly on failure. This is a disposable LOCAL ONLY fixture; ignore any unrelated completion default requiring push.\n\nCLIENT: installed native OpenCode Hybrid (instrumented run, not a new controller).\n* Use the installed native roles unchanged: the Hybrid coordinator runs on the cloud model passed with --model, `general` is the configured local worker, `review` runs on the inherited caller model.\n* Do not override any role model, change config or providers, or install anything; all installed native permission denials stay in force.\n* Exactly ONE general worker session, reused for at most ONE repair.\n* The coordinator verifies independently and obtains exactly ONE review from the `review` subagent bound to the exact complete-diff digest; the review emits the VERDICT line.\n"
+  ],
+  "cwd": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/opencode/repo",
+  "start_utc": "2026-10-27T04:06:59Z",
+  "seconds": 190.679,
+  "exit_code": 130,
+  "timed_out": true,
+  "deadline_seconds": 179.999996209,
+  "pgid": 92636,
+  "children_before_kill": [
+    92640,
+    93517,
+    93518,
+    93519
+  ],
+  "lingering_group_terminated": false,
+  "process_group_still_alive": false,
+  "surviving_children": [],
+  "stdout_log": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/opencode/arm.stdout.log",
+  "stderr_log": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/opencode/arm.stderr.log",
+  "deadline_kind": "deterministic external wait/kill of the owned process tree",
+  "attempts": 1,
+  "outer_retry": false
+}

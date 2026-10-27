@@ -1,0 +1,311 @@
+{
+  "arm": "codex",
+  "client": "codex-cli",
+  "protocol": "portable-cross-mac-1",
+  "gates": {
+    "tests_all_and_pass": true,
+    "check_exit_clean": true,
+    "scope_only_allowed_paths": true,
+    "frozen_test_and_readme_intact": true,
+    "frozen_base_commit_intact": true,
+    "no_untracked_source": true,
+    "semantic_verdict_pass": true,
+    "verdict_bound_to_current_digest": true,
+    "verdict_from_authoritative_reviewer": true,
+    "routing_expected": true,
+    "usage_complete": true,
+    "within_deadline": true,
+    "within_total_budget": true,
+    "clean_exit": true,
+    "native_permissions_not_bypassed": true
+  },
+  "accepted": true,
+  "blockers": [],
+  "check": {
+    "tests_run": 12,
+    "failures": 0,
+    "errors": 0,
+    "all_tests_expected": true,
+    "reported_failed": false,
+    "ok": true,
+    "returncode": 0,
+    "log": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/final.check.log",
+    "captured_outside_repo": true,
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "-v"
+    ],
+    "exit_code_zero": true
+  },
+  "scope": {
+    "changed": [
+      "ttl_cache.py"
+    ],
+    "untracked": [],
+    "digest": "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+    "diff_bytes": 450,
+    "frozen_files_intact": {
+      "README.md": true,
+      "test_ttl_cache.py": true
+    },
+    "frozen_intact": true,
+    "frozen_base_commit": "0d9f526ba1e54324e8cb17b0b820aa9c1a154c5d",
+    "head_commit": "0d9f526ba1e54324e8cb17b0b820aa9c1a154c5d",
+    "base_intact": true,
+    "scope_ok": true
+  },
+  "verdict": {
+    "status": "pass",
+    "digest_matches": true,
+    "candidate": {
+      "verdict": "PASS",
+      "line": "VERDICT: PASS 9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+      "state": "plain",
+      "sha": "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+      "full_sha_present": true
+    },
+    "rejected_non_plain": []
+  },
+  "verdict_source": {
+    "kind": "codex-cli",
+    "source": "last assistant message of root session 01a17b89-479b-7030-a4ef-3db080734815",
+    "authoritative": true
+  },
+  "execution": {
+    "argv": [
+      "codex",
+      "exec",
+      "--json",
+      "-C",
+      "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/repo",
+      "--model",
+      "gpt-6.1-sol",
+      "-c",
+      "model_reasoning_effort=\"medium\"",
+      "-c",
+      "agents.enabled=true",
+      "-c",
+      "agents.default_subagent_model=\"gpt-6-luna\"",
+      "-c",
+      "agents.default_subagent_reasoning_effort=\"medium\"",
+      "-c",
+      "agents.max_concurrent_threads_per_session=1",
+      "--sandbox",
+      "workspace-write",
+      "-c",
+      "approval_policy=\"never\"",
+      "Fix the TTLCache expiry behavior documented in README.md. Change only ttl_cache.py. Preserve all twelve existing test cases and all other behavior. Do not edit README.md or test_ttl_cache.py, add files, install dependencies, commit, push, change configuration, or launch other model commands. Required checks: python3 -m unittest -v from the repo root. Capture full logs outside the repo. Inspect relevant source/tests and perform substantive semantic review, not just test acceptance. Use git diff --binary HEAD as the complete tracked diff; ensure git ls-files --others --exclude-standard reports no source files; hash that exact diff using shasum -a 256. End with VERDICT: PASS <actual diff sha256> only after checks and semantic review accept the exact current patch, otherwise VERDICT: FAIL <sha256>. One initial implementation and at most ONE repair; no repeated model status polling. Never weaken a check or bypass a denied command. Stop visibly on failure. This is a disposable LOCAL ONLY fixture; ignore any unrelated completion default requiring push.\n\nCLIENT: Codex CLI baseline (orchestrated instrumented run, not daily usage).\nAuthorized benchmark exception to the local-worker defaults above, for this run only:\n* The root session on the assigned cloud Sol model at medium effort plans and reviews and must not implement code itself.\n* Spawn exactly ONE worker on the configured subagent model gpt-6-luna at medium effort, reuse that same worker for at most ONE repair using real failure evidence.\n* The worker must not switch models, delegate further, commit, push, create worktrees or launch model commands.\n* The root runs the required check itself, then emits the VERDICT line itself from the root session after substantive review of the complete diff digest.\n"
+    ],
+    "cwd": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/repo",
+    "start_utc": "2026-10-27T04:05:56Z",
+    "seconds": 62.271,
+    "exit_code": 0,
+    "timed_out": false,
+    "deadline_seconds": 179.999865416,
+    "pgid": 91691,
+    "children_before_kill": [],
+    "lingering_group_terminated": false,
+    "process_group_still_alive": false,
+    "surviving_children": [],
+    "stdout_log": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/arm.stdout.log",
+    "stderr_log": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/arm.stderr.log",
+    "deadline_kind": "deterministic external wait/kill of the owned process tree",
+    "attempts": 1,
+    "outer_retry": false,
+    "frozen_budget_seconds": 180,
+    "final_verification_seconds": 62.736,
+    "deadline_enforced": true,
+    "total_seconds": 62.736
+  },
+  "accounting": {
+    "client": "codex-cli",
+    "protocol": "portable-cross-mac-1",
+    "root_thread_id": "01a17b89-479b-7030-a4ef-3db080734815",
+    "sessions": [
+      {
+        "session_id": "01a17b89-479b-7030-a4ef-3db080734815",
+        "parent_id": null,
+        "role": "root",
+        "models": [
+          "gpt-6.1-sol"
+        ],
+        "turns": 1,
+        "efforts": [
+          "medium"
+        ],
+        "expected_model": "gpt-6.1-sol",
+        "expected_effort": "medium",
+        "completion": "complete",
+        "completion_markers": [
+          "task_started",
+          "task_complete"
+        ],
+        "spawn_calls": 1,
+        "repair_calls": 0,
+        "usage_status": "complete",
+        "tokens": {
+          "uncached_input": 20901,
+          "cached_input": 252288,
+          "cache_write_input": 0,
+          "non_reasoning_output": 1384,
+          "reasoning_output": 194,
+          "raw_input": 273189,
+          "raw_output": 1578,
+          "raw_total": 274767,
+          "cloud_total": 274767,
+          "missing_fields": [],
+          "invalid_fields": [],
+          "complete": true
+        },
+        "usage_updates": 9,
+        "tool_calls": 8,
+        "edit_calls": 0,
+        "cwd": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/repo",
+        "path": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/rollouts/01a17b89-479b-7030-a4ef-3db080734815.jsonl",
+        "sha256": "70c075dc8243912bd93e385783211437e6d9eb658cc2cfd74ff0b2f60a0389cf",
+        "first_event": "2026-10-27T04:05:57.651Z",
+        "last_event": "2026-10-27T04:06:57.773Z",
+        "malformed_lines": 0
+      },
+      {
+        "session_id": "01a17b89-93f8-7ea1-8f77-cc39615f8b24",
+        "parent_id": "01a17b89-479b-7030-a4ef-3db080734815",
+        "role": "child",
+        "models": [
+          "gpt-6-luna"
+        ],
+        "turns": 1,
+        "efforts": [
+          "medium"
+        ],
+        "expected_model": "gpt-6-luna",
+        "expected_effort": "medium",
+        "completion": "complete",
+        "completion_markers": [
+          "task_started",
+          "task_complete"
+        ],
+        "spawn_calls": 0,
+        "repair_calls": 0,
+        "usage_status": "complete",
+        "tokens": {
+          "uncached_input": 27435,
+          "cached_input": 123008,
+          "cache_write_input": 0,
+          "non_reasoning_output": 491,
+          "reasoning_output": 56,
+          "raw_input": 150443,
+          "raw_output": 547,
+          "raw_total": 150990,
+          "cloud_total": 150990,
+          "missing_fields": [],
+          "invalid_fields": [],
+          "complete": true
+        },
+        "usage_updates": 6,
+        "tool_calls": 5,
+        "edit_calls": 0,
+        "cwd": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/repo",
+        "path": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/rollouts/01a17b89-93f8-7ea1-8f77-cc39615f8b24.jsonl",
+        "sha256": "fddeb173ec18d8159837851370261c994ceaaa11b531b94d39d28483545f7c29",
+        "first_event": "2026-10-27T04:06:16.440Z",
+        "last_event": "2026-10-27T04:06:32.091Z",
+        "malformed_lines": 0
+      }
+    ],
+    "session_count": 2,
+    "children": 1,
+    "expected_child_sessions": 1,
+    "worker_turns": 1,
+    "max_worker_turns": 2,
+    "totals": {
+      "uncached_input": 48336,
+      "cached_input": 375296,
+      "cache_write_input": 0,
+      "non_reasoning_output": 1875,
+      "reasoning_output": 250,
+      "cloud_total": 425757,
+      "raw_total": 425757
+    },
+    "cloud_total": 425757,
+    "known_lower_bound": 425757,
+    "cached_input_total": 375296,
+    "cache_write_input_total": 0,
+    "reasoning_output_total": 250,
+    "usage_complete": true,
+    "unexpected_models": [],
+    "routing_ok": true,
+    "blockers": [],
+    "missing_rollouts": [],
+    "effort_mismatch": [],
+    "malformed_rollouts": [],
+    "duplicate_session_ids": [],
+    "incomplete_sessions": [],
+    "root_dispatch_calls": {
+      "spawn_agent": 1,
+      "followup": 0,
+      "observed_child_ids": []
+    },
+    "tool_calls": 13,
+    "model_calls": 2,
+    "counting": "final cumulative input+output counted once per native session; cached input is a subset of input and reasoning output a subset of output, reported as disjoint parts",
+    "recorded_window": {
+      "first_event": "2026-10-27T04:05:57.651Z",
+      "last_event": "2026-10-27T04:06:57.773Z"
+    },
+    "root_final_text": "VERDICT: PASS 9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+    "root_final_text_source": "last assistant message of root session 01a17b89-479b-7030-a4ef-3db080734815"
+  },
+  "frozen_utc": "2026-10-27T04:05:42Z",
+  "models": {
+    "codex_cloud": "gpt-6.1-sol",
+    "codex_child": "gpt-6-luna",
+    "opencode_cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/Qwen3.5-9B-OptiQ-4bit",
+    "effort": "medium"
+  },
+  "budget": {
+    "wall_clock_seconds_per_arm": 180,
+    "initial": 1,
+    "repair": 1
+  },
+  "machine": {
+    "label": "oleksii-mac",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "system": "Darwin",
+    "machine": "arm64",
+    "macos": "27.0.1",
+    "python": "3.9.6",
+    "physical_memory_bytes": 34359738368,
+    "cpu_count": 10,
+    "git": "git version 2.56.0",
+    "codex": "codex-cli 0.164.0",
+    "opencode": "opencode v2.1.4"
+  },
+  "task_sha256": "b50159fe05707e38ee1b1ba9535dbb03f3ef70ff54f0b3cfbcf228d6e410d406",
+  "fixture_sha256": {
+    "README.md": "c524dc1052954fe15e29661c4902ba5019ec630b122e705a545d6ef2aac71399",
+    "test_ttl_cache.py": "4b527fe897668e3479535395071adabe2532b178aa054e63ac00780cff0b96f0",
+    "ttl_cache.py": "7151e792621f90f57cf88a3065aa6a755bacd23f0e9bf98556ede8759ff650e2"
+  },
+  "honesty": [
+    "CLI exit code 0 does not prove acceptance",
+    "raw model tokens are not quota or price"
+  ],
+  "rollouts": {
+    "archived": [
+      "01a17b89-479b-7030-a4ef-3db080734815.jsonl",
+      "01a17b89-93f8-7ea1-8f77-cc39615f8b24.jsonl"
+    ],
+    "sha256": {
+      "01a17b89-479b-7030-a4ef-3db080734815.jsonl": "70c075dc8243912bd93e385783211437e6d9eb658cc2cfd74ff0b2f60a0389cf",
+      "01a17b89-93f8-7ea1-8f77-cc39615f8b24.jsonl": "fddeb173ec18d8159837851370261c994ceaaa11b531b94d39d28483545f7c29"
+    },
+    "dir": "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/rollouts"
+  },
+  "accounting_sources": [
+    "/Users/oleksii.naboichenko/benchmark-runs/mac-a-001/arms/codex/rollouts"
+  ]
+}

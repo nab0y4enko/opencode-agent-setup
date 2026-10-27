@@ -137,6 +137,7 @@ Its “four” is prompt guidance, not a verified scheduler limit.
 `benchmarks/fixture/` intentionally starts with 12 tests and three failing expiry-boundary cases.
 Do not fix that baseline in this repository. `benchmarks/results/`, `benchmarks/legacy/`, and
 `benchmarks/development/` preserve earlier runs and rejected candidates. They are not fresh results
-from this runner. The old protocol in `benchmarks/PROTOCOL.md` documents those historical rounds.
+from this runner, except `benchmarks/results/2026-10-27-live-round-1/`, a redacted summary of the first
+live round of this runner (Codex accepted; Hybrid failed its 180-second budget). The old protocol in `benchmarks/PROTOCOL.md` documents those historical rounds.
 Offline runner tests establish software behavior; they do not establish a live benchmark victory
 or a measured token saving.

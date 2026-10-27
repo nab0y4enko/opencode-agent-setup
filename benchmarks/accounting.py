@@ -607,6 +607,9 @@ def _tool_names(node, acc):
         for key in ('tool', 'toolName', 'toolname'):
             if isinstance(node.get(key), str):
                 acc.append(node[key].lower())
+        # OpenCode 2.1 stores a tool call as a content part {"type": "tool", "name": ...}.
+        if node.get('type') == 'tool' and isinstance(node.get('name'), str) and 'tool' not in node:
+            acc.append(node['name'].lower())
         for key in ('content', 'tools', 'parts'):
             if key in node:
                 _tool_names(node[key], acc)

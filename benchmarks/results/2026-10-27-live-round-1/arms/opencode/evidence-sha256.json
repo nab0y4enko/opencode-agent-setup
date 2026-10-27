@@ -1,0 +1,12 @@
+{
+  "sealed_utc": "2026-10-27T04:10:10Z",
+  "files": {
+    "result.json": "eb9850da9111d5389034405538dddbd98decc31bb68b23373ae01fb08e0fbd71",
+    "accounting.json": "27296514adb12db90cd3184e8d14ecf560d5254e7785574135fbe72125bc1e5a",
+    "complete.patch": "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+    "native-records.json": "6b100174cd1451f06dfac0b41697559739744f254e76b4cfe512dc436e7ea04b",
+    "arm.stdout.log": "8999b0455c3983bb9f2373d38c2b716712335798c657fd8de8b5e1472c47d184",
+    "arm.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "arm.execution.json": "7dcbfd5792efbc528d838334503b52543cd06575d4d71e7b9103824b5d388c1c"
+  }
+}

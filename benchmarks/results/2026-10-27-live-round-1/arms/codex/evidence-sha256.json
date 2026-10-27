@@ -1,0 +1,14 @@
+{
+  "sealed_utc": "2026-10-27T04:06:59Z",
+  "files": {
+    "result.json": "fe71b3ce1eb273f6fe598ce23bb2a464a3ea5dea8b23936debda32bd252d3176",
+    "accounting.json": "4dce9d0995fec31387c60f362607efd54829b703416a298893a1d8b4837bd08e",
+    "complete.patch": "9ef8713f1f528d27ebabf895a8f6925ba0100647c1020471c404b43b9070797f",
+    "arm.stdout.log": "8501f45dde2985aa49a371cda66b6f7f15e96815227258f1506290e15be1c7cf",
+    "arm.stderr.log": "5c7b51bc3b55ede2f1762f5b268cb006d6bff9e85d36fe8f98c2016455065ce4",
+    "arm.execution.json": "c2be9f693772513292fc63c1de5dac411c4c353ac4f057affd4298870717362a",
+    "final.check.log": "368debe1fc9c1c76ef0ee6a05e409eec0649a666a45d7a0dc1b655b3377b6944",
+    "rollouts/01a17b89-479b-7030-a4ef-3db080734815.jsonl": "70c075dc8243912bd93e385783211437e6d9eb658cc2cfd74ff0b2f60a0389cf",
+    "rollouts/01a17b89-93f8-7ea1-8f77-cc39615f8b24.jsonl": "fddeb173ec18d8159837851370261c994ceaaa11b531b94d39d28483545f7c29"
+  }
+}

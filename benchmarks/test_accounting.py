@@ -446,6 +446,21 @@ class OpenCodeAccounting(unittest.TestCase):
         self.assertEqual(dispatches['local_dispatches'], 3)
         self.assertTrue(blockers_have(dispatches, 'dispatches'))
 
+    def test_real_opencode_2_1_tool_parts_are_named_tools_and_root_edits_are_caught(self):
+        # OpenCode 2.1.4 stores a tool call as {"type": "tool", "name": ...} inside content.
+        def real_tool_message(rec):
+            data = json.loads(rec['messages'][1]['data'])
+            data['content'] = [{'type': 'text', 'text': 'plan'},
+                               {'type': 'tool', 'id': 'call_1', 'name': 'shell', 'state': {'status': 'completed'}},
+                               {'type': 'tool', 'id': 'call_2', 'name': 'edit', 'state': {'status': 'completed'}},
+                               {'type': 'reasoning', 'text': 'name: edit'}]
+            rec['messages'][1] = dict(rec['messages'][1], data=json.dumps(data))
+        editing = H.hybrid_arm(root=real_tool_message)
+        root = next(s for s in editing['sessions'] if s['agent'] == 'hybrid')
+        self.assertEqual(root['tools'], {'edit': 1, 'shell': 1})
+        self.assertEqual(root['edit_calls'], 1)
+        self.assertTrue(blockers_have(editing, 'must not implement'))
+
     def test_every_assistant_request_is_recorded_on_a_clean_arm(self):
         result = H.hybrid_arm()
         self.assertEqual([(r['session'], r['tier'], r['total']) for r in result['requests']],
