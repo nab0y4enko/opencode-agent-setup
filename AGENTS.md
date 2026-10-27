@@ -97,6 +97,14 @@ run directories.
 
 Results of every paid round: `benchmarks/results/RESULTS.md`.
 
+**Current result (`swiftui-list`, rounds 3–5, unchanged profile):**
+- Both arms were accepted 3/3.
+- Hybrid used about 56k cloud tokens against Codex's 637k–722k, a median ratio of 0.086.
+- The cloud share was 0.30–0.31, so the 0.35 target held and the 0.20 stretch target did not.
+- Hybrid is slower: 9–15 minutes, against about 2 minutes for Codex.
+- The main reliability lever was check output a repair can act on: compiler errors, not just
+  `TESTS total=0`.
+
 ## Repository map
 
 ```
