@@ -354,6 +354,7 @@ class NativeConfig(unittest.TestCase):
             blockers, observed = A.validate_native_profile(snap, H.LOCAL_MODEL)
             self.assertEqual(blockers, [])
             self.assertEqual((observed['default_agent'], observed['subagent_depth']), ('hybrid', 2))
+            self.assertEqual(observed['explore_model'], H.LOCAL_MODEL)
 
     def test_profile_pinning_is_rejected(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -362,8 +363,9 @@ class NativeConfig(unittest.TestCase):
                                            'review': {'model': 'gpt-6.1-sol'}})
             snap = A.config_snapshot(path)
             blockers, observed = A.validate_native_profile(snap, H.LOCAL_MODEL)
-            self.assertEqual(len(blockers), 3)
+            self.assertEqual(len(blockers), 4)
             self.assertTrue(any('pins model' in b for b in blockers))
+            self.assertTrue(any('explore' in b and 'local' in b for b in blockers))
             self.assertTrue(any('--local-model' in b for b in blockers))
             self.assertTrue(observed['hybrid_has_model'] and observed['review_has_model'])
 

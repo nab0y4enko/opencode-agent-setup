@@ -241,6 +241,11 @@ def validate_native_profile(snapshot, local_model):
     if observed['general_model'] != local_model:
         blockers.append(f"installed general worker model {observed['general_model']!r} does not match "
                         f'--local-model {local_model!r}')
+    # Without its own model, explore inherits the caller's cloud model and its reading becomes cloud cost.
+    observed['explore_model'] = (agents.get('explore') or {}).get('model')
+    if observed['explore_model'] != local_model:
+        blockers.append(f"installed explore model {observed['explore_model']!r} is not the local model "
+                        f'{local_model!r}; exploration must run locally')
     return blockers, observed
 
 

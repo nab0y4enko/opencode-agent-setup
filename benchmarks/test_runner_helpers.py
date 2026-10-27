@@ -190,7 +190,7 @@ def write_fake(directory, name, body, cfg):
 
 def native_config(directory, local_model):
     directory.mkdir(parents=True, exist_ok=True)
-    config = {'$schema': 'https://opencode.ai/config.json', 'providers': {'omlx': {'settings': {'baseURL': 'http://127.0.0.1:9/v1', 'apiKey': '{file:./omlx.key}'}}}, 'agents': {'general': {'model': local_model, 'mode': 'subagent'}, 'hybrid': {'mode': 'primary'}, 'review': {'mode': 'subagent'}}, 'default_agent': 'hybrid', 'experimental': {'subagent_depth': 1}}
+    config = {'$schema': 'https://opencode.ai/config.json', 'providers': {'omlx': {'settings': {'baseURL': 'http://127.0.0.1:9/v1', 'apiKey': '{file:./omlx.key}'}}}, 'agents': {'general': {'model': local_model, 'mode': 'subagent'}, 'explore': {'model': local_model}, 'hybrid': {'mode': 'primary'}, 'review': {'mode': 'subagent'}}, 'default_agent': 'hybrid', 'experimental': {'subagent_depth': 1}}
     path = directory / 'opencode.json'
     path.write_text(json.dumps(config, indent=2), encoding='utf-8')
     (directory / 'omlx.key').write_text('SECRET-DO-NOT-COPY\n', encoding='utf-8')

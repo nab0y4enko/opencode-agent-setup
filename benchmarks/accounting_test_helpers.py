@@ -169,7 +169,7 @@ def write_db(path, records):
 
 
 def native_config(path, **extra):
-    config = {'agents': {'general': {'model': LOCAL_MODEL}, 'hybrid': {}, 'review': {}},
+    config = {'agents': {'general': {'model': LOCAL_MODEL}, 'explore': {'model': LOCAL_MODEL}, 'hybrid': {}, 'review': {}},
               'default_agent': 'hybrid', 'experimental': {'subagent_depth': 2},
               'apiKey': 'super-secret-value', 'headers': {'Authorization': 'Bearer {env:ABSENT_TOKEN}'},
               'base_url': 'https://gw.example/{env:GW_HOST}', 'worker': {'model_ref': '{env:LOCAL_ID}'},
