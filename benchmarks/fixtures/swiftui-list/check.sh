@@ -13,10 +13,16 @@ xcodebuild test -project ListApp.xcodeproj -scheme ListApp \
     -derivedDataPath .bench-build/DerivedData -resultBundlePath "$bundle" -quiet \
     > .bench-build/xcodebuild.log 2>&1
 status=$?
+build_errors() {
+    # Compiler errors are what a repair needs; print each once, with paths relative to the project.
+    # macOS logs /tmp paths without the /private prefix that pwd -P reports, so strip both spellings.
+    here=$(pwd -P)
+    grep -E ': error: ' .bench-build/xcodebuild.log | sed -e "s|$here/||" -e "s|${here#/private}/||" | sort -u | head -n 15
+}
 if [ ! -d "$bundle" ]; then
     echo "TESTS total=0 passed=0 failed=0 skipped=0"
     echo "ERROR no result bundle (xcodebuild exit $status); see .bench-build/xcodebuild.log"
-    tail -n 20 .bench-build/xcodebuild.log
+    build_errors
     exit 1
 fi
 xcrun xcresulttool get test-results summary --path "$bundle" --compact | /usr/bin/python3 -c '
@@ -30,4 +36,8 @@ for failure in summary.get("testFailures", []):
 sys.exit(0 if summary["failedTests"] == 0 and summary["totalTestCount"] > 0 else 1)
 '
 summary_status=$?
+if [ "$summary_status" -ne 0 ] && [ -n "$(build_errors)" ]; then
+    echo "ERROR build failed; compiler errors:"
+    build_errors
+fi
 [ "$status" -eq 0 ] && [ "$summary_status" -eq 0 ]
