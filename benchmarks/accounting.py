@@ -96,6 +96,21 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+# ------------------------------------------------------------------ seat tables
+USAGE_PARTS = ('uncached_input', 'cached_input', 'output', 'reasoning')
+
+
+def empty_usage(model=None):
+    return dict(dict.fromkeys(USAGE_PARTS + ('total',), 0), model=model)
+
+
+def add_usage(target, uncached_input, cached_input, output, reasoning, total):
+    """Accumulate one request or session; reasoning is a part of output for Codex and its own counter for OpenCode."""
+    for key, value in zip(USAGE_PARTS + ('total',), (uncached_input, cached_input, output, reasoning, total)):
+        target[key] += value
+    return target
+
+
 # ------------------------------------------------------------------ verdict text
 _FENCE = re.compile(r'^\s*(```|~~~)')
 _VERDICT = re.compile(r'^VERDICT:\s*(PASS|FAIL|CHANGES_REQUIRED)\b[ \t]*(.*)$', re.I)
@@ -373,7 +388,7 @@ def codex_disjoint(usage):
 
 
 def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected_child_model,
-                  expected_effort='medium', client='codex-cli', max_worker_turns=2):
+                  expected_effort='medium', client='codex-cli', max_worker_turns=2, max_workers=4):
     """Final cumulative usage per native session, counted once, failing closed."""
     totals = dict.fromkeys(('uncached_input', 'cached_input', 'cache_write_input', 'non_reasoning_output',
                             'reasoning_output', 'cloud_total', 'raw_total'), 0)
@@ -389,7 +404,10 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
     malformed_rollouts = []
     descendants = max(len(ids) - 1, 0)
     root_calls, root_edit_calls, children, expected_children = None, 0, 0, 0
-    worker_turns = 0
+    worker_turns, over_turned = 0, []
+    seats = {'planner': empty_usage(expected_root_model), 'worker': empty_usage(expected_child_model),
+             'unknown': empty_usage()}
+    by_model = {}
     for sid in ids:
         rec = catalog.get(sid)
         if rec is None:
@@ -454,6 +472,14 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
                 status, reason = 'complete', ''
                 for key in totals:
                     totals[key] += tokens[key]
+                # Seats follow the model the session really ran, never its role.
+                seat = ('planner' if models == [expected_root_model] and role == 'root'
+                        else 'worker' if models == [expected_child_model] and role == 'child' else 'unknown')
+                parts = (tokens['uncached_input'], tokens['cached_input'], tokens['raw_output'],
+                         tokens['reasoning_output'], tokens['cloud_total'])
+                add_usage(seats[seat], *parts)
+                model_key = models[0] if len(models) == 1 else 'unknown'
+                add_usage(by_model.setdefault(model_key, empty_usage(model_key)), *parts)
             if reason:
                 blockers.append(f'session {sid} ({role}) usage is {status} ({reason}); the arm total '
                                 'stays a lower bound and is never reported as zero')
@@ -467,12 +493,12 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
             spawns, repairs = as_int(rec.get('spawn_calls')), as_int(rec.get('repair_calls'))
             root_calls = {'spawn_agent': spawns, 'followup': repairs,
                           'observed_child_ids': list(rec.get('spawned_ids') or [])}
-            if spawns > 1:
-                blockers.append(f'Codex root recorded {spawns} spawn_agent calls; exactly ONE initial '
-                                'worker is allowed')
-            if spawns + repairs > 2:
-                blockers.append(f'Codex root recorded {spawns + repairs} worker dispatches; the frozen '
-                                'budget is one initial plus at most one repair')
+            if spawns > max_workers:
+                blockers.append(f'Codex root recorded {spawns} spawn_agent calls; at most {max_workers} '
+                                'workers are allowed')
+            if repairs > max(spawns, 1):
+                blockers.append(f'Codex root recorded {repairs} follow-up dispatches for {spawns} worker(s); '
+                                'each worker gets at most one repair')
             if spawns and spawns > descendants:
                 blockers.append(f'Codex root observed {spawns} spawn(s) but only {descendants} '
                                 'descendant session(s) exist; an unrollowned spawn is never accepted')
@@ -480,7 +506,12 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
             children += 1
             # The worker's own task_started markers count the turns it really ran, whichever root
             # tool (spawn_agent, followup_task, send_message, send_input...) dispatched them.
-            worker_turns += list(rec.get('completion_markers') or []).count('task_started')
+            turns = list(rec.get('completion_markers') or []).count('task_started')
+            worker_turns += turns
+            if turns > max_worker_turns:
+                over_turned.append(sid)
+                blockers.append(f'the delegated worker {sid} ran {turns} turn(s); each worker gets one initial '
+                                f'assignment plus at most one repair ({max_worker_turns} turns)')
             if models == [expected_child_model] and efforts == [expected_effort] and completion == 'complete':
                 expected_children += 1
         sessions.append({'session_id': sid, 'parent_id': rec['parent_id'], 'role': role, 'models': models,
@@ -497,24 +528,24 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
         blockers.append(f'no Codex rollout was recorded for the root thread {root_thread_id}')
     if children == 0:
         blockers.append('no Luna child session was spawned; the required Sol+Luna routing did not happen')
-    elif children > 1:
-        blockers.append(f'expected exactly one Luna child session, found {children}')
-    elif expected_children == 0:
-        blockers.append(f'no child ran the expected {expected_child_model} {expected_effort} routing')
-    if worker_turns > max_worker_turns:
-        blockers.append(f'the delegated worker ran {worker_turns} turn(s); the frozen budget is one initial '
-                        f'assignment plus at most one repair ({max_worker_turns} turns)')
-    dispatch_ok = worker_turns <= max_worker_turns and (not root_calls or (
-        root_calls['spawn_agent'] <= 1 and root_calls['spawn_agent'] + root_calls['followup'] <= 2
+    elif children > max_workers:
+        blockers.append(f'found {children} Luna child sessions; at most {max_workers} workers are allowed')
+    elif expected_children < children:
+        blockers.append(f'{children - expected_children} child session(s) did not run the expected '
+                        f'{expected_child_model} {expected_effort} routing to completion')
+    dispatch_ok = not over_turned and (not root_calls or (
+        root_calls['spawn_agent'] <= max_workers and root_calls['followup'] <= max(root_calls['spawn_agent'], 1)
         and root_calls['spawn_agent'] <= descendants))
     routing_ok = (root_thread_id in catalog and not unexpected_models and not missing_rollouts
                   and not duplicate_ids and not effort_mismatch and not incomplete_sessions
-                  and not root_edit_calls and dispatch_ok and children == 1 and expected_children > 0)
+                  and not root_edit_calls and dispatch_ok and 1 <= children <= max_workers
+                  and expected_children == children)
     usage_complete = not (unknown_sessions or attribution_bad or missing_rollouts or malformed_rollouts)
     final_texts = (catalog.get(root_thread_id) or {}).get('assistant_texts') or []
     return {'client': client, 'protocol': PROTOCOL, 'root_thread_id': root_thread_id, 'sessions': sessions,
             'session_count': len(sessions), 'children': children, 'expected_child_sessions': expected_children,
-            'worker_turns': worker_turns, 'max_worker_turns': max_worker_turns,
+            'worker_turns': worker_turns, 'max_worker_turns': max_worker_turns, 'max_workers': max_workers,
+            'seats': seats, 'by_model': by_model,
             'totals': totals, 'cloud_total': totals['cloud_total'] if usage_complete else None,
             'known_lower_bound': totals['cloud_total'], 'cached_input_total': totals['cached_input'],
             'cache_write_input_total': totals['cache_write_input'],
@@ -620,7 +651,8 @@ def _tool_names(node, acc):
 
 def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, expected_cloud_model,
                      expected_local_provider, expected_local_model, expected_local_agent='general',
-                     expected_review_agent='review', max_local_dispatches=2, client='opencode-cli'):
+                     expected_review_agent='review', max_local_dispatches=2, client='opencode-cli',
+                     max_workers=4, max_explore=2, expected_explore_agent='explore'):
     """Disjoint assistant-message usage summed once per message, failures and gaps included."""
     fields = ('input', 'output', 'reasoning', 'cache_read', 'cache_write')
     totals = {t: dict.fromkeys(fields + ('total',), 0) for t in ('cloud', 'local', 'unknown')}
@@ -629,6 +661,11 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
     pending, variant_mismatch, unknown_fields = [], [], []
     invalid_usage, duplicate_records, unattributed = [], [], []
     assistant_models, assistant_variants, local_sessions, review_sessions = {}, {}, [], []
+    explore_sessions = []
+    cloud_qualified = f'{expected_cloud_provider}/{expected_cloud_model}'
+    seats = {'planner': empty_usage(cloud_qualified), 'worker': empty_usage(expected_local_model),
+             'unknown': empty_usage()}
+    by_model, by_role = {}, {}
     incomplete_sessions = []
     seen_sessions, seen_messages = set(), {}
     maintenance = 0
@@ -645,6 +682,8 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             local_sessions.append(sid)
         elif agent == expected_review_agent:
             review_sessions.append(sid)
+        elif agent == expected_explore_agent:
+            explore_sessions.append(sid)
         known = user_turns = edit_calls = model_calls = 0
         tool_counts, session_pending = {}, []
         for message in rec['messages']:
@@ -694,6 +733,16 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             for key, value in counts.items():
                 totals[tier][key] += value
             totals[tier]['total'] += total
+            # Seats follow the model that served this request, never the session's role.
+            qualified = f'{provider}/{model_id}' if attributed else 'unknown'
+            seat = ('planner' if tier == 'cloud' and model_id == expected_cloud_model
+                    else 'worker' if tier == 'local' and qualified == expected_local_model else 'unknown')
+            parts = (counts['input'] + counts['cache_write'], counts['cache_read'], counts['output'],
+                     counts['reasoning'], total)
+            add_usage(seats[seat], *parts)
+            add_usage(by_model.setdefault(qualified, empty_usage(qualified)), *parts)
+            role_name = str(data.get('agent') or agent or 'unknown')
+            add_usage(by_role.setdefault(role_name, empty_usage()), *parts)
             tools = []
             _tool_names(data, tools)
             edit_calls += sum(1 for t in tools if t in EDIT_TOOLS)
@@ -760,23 +809,30 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             blockers.append(f"root session {root['id']} agent is {root['agent']!r}, expected 'hybrid'")
         if root['edit_calls']:
             blockers.append(f"Hybrid root made {root['edit_calls']} edit call(s); the root must not implement")
-    if len(local_sessions) != 1:
-        blockers.append(f'expected exactly one general local worker session, found {len(local_sessions)}')
+    if not local_sessions:
+        blockers.append(f'expected at least one {expected_local_agent} local worker session, found none')
+    elif len(local_sessions) > max_workers:
+        blockers.append(f'found {len(local_sessions)} {expected_local_agent} worker sessions; at most {max_workers} '
+                        'workers are allowed')
+    if len(explore_sessions) > max_explore:
+        blockers.append(f'found {len(explore_sessions)} explore sessions; at most {max_explore} explore sessions '
+                        'are allowed')
     dispatches = sum(s['user_turns'] for s in sessions_out if s['id'] in local_sessions)
+    for session in sessions_out:
+        if session['id'] in local_sessions and session['user_turns'] > max_local_dispatches:
+            blockers.append(f"local worker {session['id']} received {session['user_turns']} dispatches (maximum "
+                            f'{max_local_dispatches}: one initial plus one repair)')
     for session in sessions_out:
         model = session['model']
         if session['id'] in local_sessions and model and \
                 f"{model.get('providerID')}/{model.get('modelID')}" != expected_local_model:
             blockers.append(f"local worker session {session['id']} ran {model} instead of {expected_local_model}")
-    if dispatches > max_local_dispatches:
-        blockers.append(f'local worker received {dispatches} dispatches (maximum {max_local_dispatches}: '
-                        'one initial plus one repair)')
     if not review_sessions:
         blockers.append('no review subagent session was recorded; the native semantic review is missing')
     elif len(review_sessions) > 1:
         blockers.append(f'expected exactly one review session, found {len(review_sessions)}')
     extra_agents = [f"{s['id']}:{s['agent']}" for s in sessions_out
-                    if s['agent'] not in ('hybrid', expected_local_agent, expected_review_agent)]
+                    if s['agent'] not in ('hybrid', expected_local_agent, expected_review_agent, expected_explore_agent)]
     if extra_agents:
         blockers.append(f"unexpected native session(s) {', '.join(extra_agents)}: the frozen arm is one "
                         f'Hybrid root, one {expected_local_agent} worker and one {expected_review_agent} review')
@@ -784,6 +840,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
     by_id = {s['id']: s for s in sessions_out}
     required_roles = [('root Hybrid', [r['id'] for r in roots], cloud_expected, True),
                       (f'{expected_local_agent} worker', local_sessions, expected_local_model, False),
+                      (f'{expected_explore_agent} helper', explore_sessions, expected_local_model, False),
                       ('Sol reviewer', review_sessions, cloud_expected, True)]
     for label, tier_ids, expected_routing, check_variant in required_roles:
         for sid in tier_ids:
@@ -828,6 +885,8 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
     return {'client': client, 'protocol': PROTOCOL, 'sessions': sessions_out, 'requests': requests,
             'root_session_ids': root_ids, 'local_worker_sessions': local_sessions,
             'local_dispatches': dispatches, 'review_sessions': review_sessions, 'totals': totals,
+            'explore_sessions': explore_sessions, 'max_workers': max_workers, 'seats': seats,
+            'by_model': by_model, 'by_role': by_role,
             'cloud_total': cloud_known if status == 'exact' else None, 'known_lower_bound': cloud_known,
             'local_total': totals['local']['total'], 'unknown_maintenance_total': maintenance,
             'unknown_usage_total': totals['unknown']['total'], 'usage_complete': usage_complete,

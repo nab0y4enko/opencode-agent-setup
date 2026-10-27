@@ -24,27 +24,24 @@ import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import accounting as A
+import fixtures as FX
 REPO_ROOT = Path(__file__).resolve().parent.parent
-FIXTURE_DIR = REPO_ROOT / 'benchmarks' / 'fixture'
+DEFAULT_FIXTURE = 'ttl-python'
 DEFAULT_CLOUD_CODEX = 'gpt-6.1-sol'
 DEFAULT_CLOUD_OPENCODE = 'openai/gpt-6.1-sol#medium'
 DEFAULT_CHILD_MODEL = 'gpt-6-luna'
 DEFAULT_EFFORT = 'medium'
-DEFAULT_BUDGET = 180
 CLIENT_EFFORTS = ('minimal', 'low', 'medium', 'high')
 SUPPORTED_EFFORTS = ('medium',)
-CHECK = ['python3', '-m', 'unittest', '-v']
-ALLOWED_CHANGED = ['ttl_cache.py']
-FROZEN_FILES = ['README.md', 'test_ttl_cache.py']
-EXPECTED_TESTS = 12
+MAX_WORKERS = 4
 PERMISSION_BYPASS_FLAGS = ('--yolo', '--dangerously-bypass-approvals-and-sandbox', '--no-sandbox',
                            '--full-auto', '--auto-approve', '--auto', '--allow-all',
                            '--disable-permissions', '--permission-mode')
 GLOBAL_CONFIG_FLAGS = ('--global', '-g', '--config', '--edit-config', '--write-config',
                        '--update-config', '--install', '--set-profile', '--profile')
-TASK = 'Fix the TTLCache expiry behavior documented in README.md. Change only ttl_cache.py. Preserve all twelve existing test cases and all other behavior. Do not edit README.md or test_ttl_cache.py, add files, install dependencies, commit, push, change configuration, or launch other model commands. Required checks: python3 -m unittest -v from the repo root. Capture full logs outside the repo. Inspect relevant source/tests and perform substantive semantic review, not just test acceptance. Use git diff --binary HEAD as the complete tracked diff; ensure git ls-files --others --exclude-standard reports no source files; hash that exact diff using shasum -a 256. End with VERDICT: PASS <actual diff sha256> only after checks and semantic review accept the exact current patch, otherwise VERDICT: FAIL <sha256>. One initial implementation and at most ONE repair; no repeated model status polling. Never weaken a check or bypass a denied command. Stop visibly on failure. This is a disposable LOCAL ONLY fixture; ignore any unrelated completion default requiring push.'
-CODEX_ADDENDUM = '\n\nCLIENT: Codex CLI baseline (orchestrated instrumented run, not daily usage).\nAuthorized benchmark exception to the local-worker defaults above, for this run only:\n* The root session on the assigned cloud Sol model at {effort} effort plans and reviews and must not implement code itself.\n* Spawn exactly ONE worker on the configured subagent model {child_model} at {effort} effort, reuse that same worker for at most ONE repair using real failure evidence.\n* The worker must not switch models, delegate further, commit, push, create worktrees or launch model commands.\n* The root runs the required check itself, then emits the VERDICT line itself from the root session after substantive review of the complete diff digest.\n'
-OPENCODE_ADDENDUM = '\n\nCLIENT: installed native OpenCode Hybrid (instrumented run, not a new controller).\n* Use the installed native roles unchanged: the Hybrid coordinator runs on the cloud model passed with --model, `general` is the configured local worker, `review` runs on the inherited caller model.\n* Do not override any role model, change config or providers, or install anything; all installed native permission denials stay in force.\n* Exactly ONE general worker session, reused for at most ONE repair.\n* The coordinator verifies independently and obtains exactly ONE review from the `review` subagent bound to the exact complete-diff digest; the review emits the VERDICT line.\n'
+TASK = FX.TTL_TASK
+CODEX_ADDENDUM = '\n\nCLIENT: Codex CLI baseline (orchestrated instrumented run, not daily usage).\nAuthorized benchmark exception to the local-worker defaults above, for this run only:\n* The root session on the assigned cloud Sol model at {effort} effort plans and reviews and must not implement code itself.\n* Delegate all implementation to 1-4 workers on the configured subagent model {child_model} at {effort} effort; run workers in parallel only on disjoint files, and give each worker at most ONE repair using real failure evidence.\n* The worker must not switch models, delegate further, commit, push, create worktrees or launch model commands.\n* The root runs the required check itself, then emits the VERDICT line itself from the root session after substantive review of the complete diff digest.\n'
+OPENCODE_ADDENDUM = '\n\nCLIENT: installed native OpenCode Hybrid (instrumented run, not a new controller).\n* Use the installed native roles unchanged: the Hybrid coordinator runs on the cloud model passed with --model, `general` is the configured local worker, `review` runs on the inherited caller model.\n* Do not override any role model, change config or providers, or install anything; all installed native permission denials stay in force.\n* Delegate all implementation to 1-4 `general` worker sessions, in parallel only on disjoint files; each worker gets at most ONE repair.\n* The coordinator verifies independently and obtains exactly ONE review from the `review` subagent bound to the exact complete-diff digest; the review emits the VERDICT line.\n'
 
 def now():
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
@@ -144,28 +141,40 @@ def load_manifest(out):
 def save_manifest(out, manifest):
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
 
-def fixture_hashes():
-    return {p.name: A.sha256_file(p) for p in sorted(FIXTURE_DIR.iterdir()) if p.is_file()}
+def fixture_of(manifest):
+    """The fixture a manifest was prepared with; manifests from before the registry are the Python one."""
+    try:
+        return FX.get(manifest.get('fixture') or DEFAULT_FIXTURE)
+    except KeyError as exc:
+        raise A.PreflightBlocker(str(exc)) from exc
 
-def make_checkout(repo):
+def fixture_hashes(fixture):
+    return {name: A.sha256_file(fixture.dir / name) for name in fixture.files()}
+
+def make_checkout(repo, fixture):
     repo.mkdir(parents=True)
-    for path in sorted(FIXTURE_DIR.iterdir()):
-        if path.is_file():
-            shutil.copy2(path, repo / path.name)
+    for name in fixture.files():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(fixture.dir / name, repo / name)
     git(repo, 'init', '-q')
     exclude = repo / '.git' / 'info' / 'exclude'
     exclude.parent.mkdir(parents=True, exist_ok=True)
-    exclude.write_text('__pycache__/\n*.pyc\n', encoding='utf-8')
+    exclude.write_text(''.join(f'{pattern}\n' for pattern in ['__pycache__/', '*.pyc'] + fixture.excluded), encoding='utf-8')
     # The baseline commit is the runner's own: no user hook or signing setup may alter or block it.
     isolated = ('-c', 'user.name=benchmark', '-c', 'user.email=benchmark@local', '-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false')
     git(repo, *isolated, 'add', '-A')
     git(repo, *isolated, 'commit', '-qm', 'frozen fixture baseline')
     return git(repo, 'rev-parse', 'HEAD')
 
-def build_prompts(child_model=DEFAULT_CHILD_MODEL, effort=DEFAULT_EFFORT):
+def simulator_line(fixture, arm):
+    simulator = fixture.simulator(arm)
+    return f'\nSimulator for this run: {simulator} (use exactly: ./check.sh {simulator}).\n' if simulator else ''
+
+def build_prompts(child_model=DEFAULT_CHILD_MODEL, effort=DEFAULT_EFFORT, fixture=None):
     """The frozen prompt must name the models this round actually launches, never a default."""
-    codex = TASK + CODEX_ADDENDUM.format(child_model=child_model, effort=effort)
-    return {'codex': codex, 'opencode': TASK + OPENCODE_ADDENDUM,
+    fixture = fixture or FX.get(DEFAULT_FIXTURE)
+    codex = fixture.task + CODEX_ADDENDUM.format(child_model=child_model, effort=effort) + simulator_line(fixture, 'codex')
+    return {'codex': codex, 'opencode': fixture.task + OPENCODE_ADDENDUM + simulator_line(fixture, 'opencode'),
             'codex-app': codex.replace('CLIENT: Codex CLI baseline', 'CLIENT: Codex desktop App import')}
 
 def frozen_fields(manifest):
@@ -177,12 +186,16 @@ def frozen_fields(manifest):
     """
     models = manifest.get('models') or {}
     arms = manifest.get('arms') or {}
-    return {'protocol': manifest.get('protocol'), 'task_sha256': A.sha256_bytes(str(manifest.get('task') or '').encode('utf-8')),
+    fields = {'protocol': manifest.get('protocol'), 'task_sha256': A.sha256_bytes(str(manifest.get('task') or '').encode('utf-8')),
             'fixture_sha256': manifest.get('fixture_sha256'), 'frozen_files': manifest.get('frozen_files'),
             'allowed_changed': manifest.get('allowed_changed'), 'expected_tests': manifest.get('expected_tests'),
             'check': manifest.get('check'), 'budget': manifest.get('budget'), 'permission_policy': manifest.get('permission_policy'),
             'cloud_models': {key: models.get(key) for key in ('codex_cloud', 'codex_child', 'opencode_cloud', 'effort')},
             'prompts': {name: (record or {}).get('prompt_sha256') for (name, record) in sorted(arms.items())}}
+    if manifest.get('fixture'):
+        # Only manifests that name a fixture seal it, so earlier sealed manifests keep their digest.
+        fields['fixture'] = manifest['fixture']
+    return fields
 
 def frozen_fields_sha256(manifest):
     return A.sha256_bytes(json.dumps(frozen_fields(manifest), sort_keys=True, separators=(',', ':')).encode('utf-8'))
@@ -259,8 +272,91 @@ def symlinked_components(path, root):
 
 DESKTOP_STEPS = "Codex desktop App import (manual, real App session — never labelled CLI):\n1. In the Codex App open the ALREADY PREPARED project folder listed below as its own project.\n   Do not copy any other arm's diff, log or verdict into it (no solution transfer).\n2. Select the cloud Sol model with medium reasoning; delegated workers must be Luna medium.\n3. Paste exactly the frozen prompt in prompts/codex-app.txt (same task bytes as the CLI arms)\n   and let the App session finish on its own.  The frozen budget is checked RETROSPECTIVELY from\n   the recorded session window; this tool cannot kill a desktop App session.\n4. Then run:  python3 benchmarks/run.py finish OUT --codex-thread <root thread id> --live\n   which imports the real root + descendant rollouts, verifies routing/digest/verdict/time, and\n   then launches the native OpenCode Hybrid arm on the identical fixture.\n"
 
+def simctl(*args):
+    """Run `xcrun simctl`; a failure is a preflight blocker, never a silent no-op."""
+    proc = subprocess.run(['xcrun', 'simctl', *args], capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        raise A.PreflightBlocker(f"xcrun simctl {' '.join(args)} failed: {(proc.stderr or proc.stdout).strip()[:300]}")
+    return proc.stdout
+
+def simulator_devices():
+    devices = json.loads(simctl('list', 'devices', '-j') or '{}').get('devices') or {}
+    return [dict(device, runtime=runtime) for (runtime, entries) in devices.items() for device in entries]
+
+def newest_iphone():
+    """The newest available iOS runtime and an iPhone device type it supports."""
+    runtimes = [r for r in json.loads(simctl('list', 'runtimes', '-j')).get('runtimes', []) if r.get('platform') == 'iOS' and r.get('isAvailable')]
+    if not runtimes:
+        raise A.PreflightBlocker('no available iOS simulator runtime; install one in Xcode before running a simulator fixture')
+    runtime = max(runtimes, key=lambda r: [int(part) for part in str(r.get('version', '0')).split('.') if part.isdigit()])
+    phones = [d for d in runtime.get('supportedDeviceTypes') or [] if d.get('productFamily') == 'iPhone']
+    if not phones:
+        raise A.PreflightBlocker(f"iOS runtime {runtime.get('identifier')} supports no iPhone device type")
+    return runtime['identifier'], phones[0]['identifier']
+
+def simulator_create(name):
+    """Create the run's own simulator; an existing device with the name is someone else's and is refused."""
+    if any(device.get('name') == name for device in simulator_devices()):
+        raise A.PreflightBlocker(f'a simulator named {name!r} already exists; it may belong to another run or to you, so it is never reused or deleted. Delete it yourself or finish that run first')
+    (runtime, device_type) = newest_iphone()
+    udid = simctl('create', name, device_type, runtime).strip()
+    return {'name': name, 'udid': udid, 'runtime': runtime, 'device_type': device_type, 'created_utc': now()}
+
+def simulator_delete(record):
+    """Delete only the device whose UDID this run recorded and whose name still matches."""
+    receipt = {'name': record.get('name'), 'udid': record.get('udid')}
+    try:
+        match = [d for d in simulator_devices() if d.get('udid') == record.get('udid')]
+        if not match:
+            return dict(receipt, status='already_absent')
+        if match[0].get('name') != record.get('name'):
+            return dict(receipt, status='blocked_name_mismatch', found=match[0].get('name'))
+        if match[0].get('state') == 'Booted':
+            simctl('shutdown', record['udid'])
+        simctl('delete', record['udid'])
+    except A.PreflightBlocker as exc:
+        return dict(receipt, status='blocked_simctl_failed', blocker=str(exc))
+    return dict(receipt, status='deleted')
+
+def release_simulators(out, manifest):
+    receipts = [simulator_delete(record) for record in (manifest.get('simulators') or {}).values()]
+    if receipts:
+        path = out / 'simulator-cleanup.json'
+        try:
+            earlier = json.loads(path.read_text(encoding='utf-8')) if path.exists() else []
+        except (OSError, ValueError):
+            earlier = []
+        path.write_text(json.dumps(earlier + receipts, indent=2), encoding='utf-8')
+    return receipts
+
+def start_arm_simulator(out, manifest, arm):
+    """Create and boot the arm's simulator before its clock starts, so boot time is equal and untimed."""
+    fixture = fixture_of(manifest)
+    if not fixture.needs_simulator:
+        return None
+    record = simulator_create(fixture.simulator(arm))
+    manifest.setdefault('simulators', {})[arm] = record
+    save_manifest(out, manifest)
+    simctl('boot', record['udid'])
+    simctl('bootstatus', record['udid'], '-b')
+    record['booted_utc'] = now()
+    save_manifest(out, manifest)
+    return record
+
+def baseline_blockers(fixture, baseline):
+    expected = (fixture.expected_tests, fixture.expected_baseline_failures)
+    seen = (baseline.get('tests_run'), (baseline.get('failures') or 0) + (baseline.get('errors') or 0))
+    if seen != expected:
+        return [f'the frozen baseline check reported {seen[0]} tests with {seen[1]} failures instead of the expected {expected[0]} tests with {expected[1]} failures; this Mac cannot reproduce the frozen starting point ({baseline.get("log")})']
+    return []
+
 def cmd_prepare(args):
-    for blocker in budget_blockers(args.timeout):
+    try:
+        fixture = FX.get(args.fixture)
+    except KeyError as exc:
+        raise A.PreflightBlocker(str(exc)) from exc
+    budget = fixture.default_budget if args.timeout is None else args.timeout
+    for blocker in budget_blockers(budget):
         print(f'BLOCKER: {blocker}', file=sys.stderr)
         return 2
     out = resolve_out(args.out, fresh=True)
@@ -270,24 +366,44 @@ def cmd_prepare(args):
     bins = {'codex': args.codex_bin, 'opencode': args.opencode_bin}
     snapshot = A.config_snapshot(Path(args.opencode_config).expanduser(), os.environ)
     (profile_blockers, profile_observed) = A.validate_native_profile(snapshot, args.local_model)
-    prompts = build_prompts(args.child_model, args.effort)
+    prompts = build_prompts(args.child_model, args.effort, fixture)
     (out / 'prompts').mkdir(parents=True)
     for (name, text) in prompts.items():
         (out / 'prompts' / f'{name}.txt').write_text(text, encoding='utf-8')
-    (out / 'task.txt').write_text(TASK, encoding='utf-8')
+    (out / 'task.txt').write_text(fixture.task, encoding='utf-8')
     arms = {}
     for arm in ('codex', 'opencode'):
         repo = out / 'arms' / arm / 'repo'
-        arms[arm] = {'repo': str(repo), 'base': make_checkout(repo), 'prompt_sha256': A.sha256_bytes(prompts[arm].encode()), 'task_sha256': A.sha256_bytes(TASK.encode())}
+        arms[arm] = {'repo': str(repo), 'base': make_checkout(repo, fixture), 'prompt_sha256': A.sha256_bytes(prompts[arm].encode()), 'task_sha256': A.sha256_bytes(fixture.task.encode())}
     machine = machine_info(bins)
     machine['label'] = args.label or platform.node()
-    manifest = {'protocol': A.PROTOCOL, 'frozen_utc': now(), 'state': 'prepared', 'machine': machine, 'measurement_kind': 'cli', 'models': {'codex_cloud': args.codex_cloud_model, 'codex_child': args.child_model, 'opencode_cloud': args.opencode_cloud_model, 'local': args.local_model, 'effort': args.effort}, 'budget': {'wall_clock_seconds_per_arm': args.timeout, 'initial': 1, 'repair': 1}, 'check': CHECK, 'expected_tests': EXPECTED_TESTS, 'allowed_changed': ALLOWED_CHANGED, 'frozen_files': FROZEN_FILES, 'task': TASK, 'fixture_sha256': fixture_hashes(), 'native_config': {'path': snapshot['path'], 'raw_sha256': snapshot['raw_sha256'], 'snapshot': snapshot['snapshot'], 'stats': snapshot['stats']}, 'native_profile': {'blockers': profile_blockers, 'observed': profile_observed}, 'binaries': {k: str(Path(v).expanduser()) if v else None for (k, v) in bins.items()}, 'codex_home': str(Path(args.codex_home).expanduser()) if args.codex_home else None, 'opencode_db': str(Path(args.opencode_db).expanduser()) if args.opencode_db else None, 'permission_policy': args.permission_policy, 'arms': arms, 'completed_arms': [], 'owned_paths': [str(out / 'arms' / a / 'repo') for a in ('codex', 'opencode')], 'notes': ['CLI arms measure CLI clients only; a desktop App session is a separate client label imported by `finish`.', 'Token counts are raw model tokens, not quota or price; cross-Mac cache state is an unknown caveat.']}
+    manifest = {'protocol': A.PROTOCOL, 'fixture': fixture.name, 'frozen_utc': now(), 'state': 'prepared', 'machine': machine, 'measurement_kind': 'cli', 'models': {'codex_cloud': args.codex_cloud_model, 'codex_child': args.child_model, 'opencode_cloud': args.opencode_cloud_model, 'local': args.local_model, 'effort': args.effort}, 'budget': {'wall_clock_seconds_per_arm': budget, 'initial': 1, 'repair': 1, 'max_workers': MAX_WORKERS}, 'check': {arm: fixture.check_argv(arm) for arm in ('codex', 'opencode')}, 'expected_tests': fixture.expected_tests, 'allowed_changed': fixture.allowed_changed, 'frozen_files': fixture.frozen_files, 'excluded': fixture.excluded, 'task': fixture.task, 'fixture_sha256': fixture_hashes(fixture), 'native_config': {'path': snapshot['path'], 'raw_sha256': snapshot['raw_sha256'], 'snapshot': snapshot['snapshot'], 'stats': snapshot['stats']}, 'native_profile': {'blockers': profile_blockers, 'observed': profile_observed}, 'binaries': {k: str(Path(v).expanduser()) if v else None for (k, v) in bins.items()}, 'codex_home': str(Path(args.codex_home).expanduser()) if args.codex_home else None, 'opencode_db': str(Path(args.opencode_db).expanduser()) if args.opencode_db else None, 'permission_policy': args.permission_policy, 'arms': arms, 'simulators': {}, 'completed_arms': [], 'owned_paths': [str(out / 'arms' / a / 'repo') for a in ('codex', 'opencode')], 'notes': ['CLI arms measure CLI clients only; a desktop App session is a separate client label imported by `finish`.', 'Token counts are raw model tokens, not quota or price; cross-Mac cache state is an unknown caveat.']}
     manifest['frozen_fields_sha256'] = frozen_fields_sha256(manifest)
     save_manifest(out, manifest)
+    blockers = list(profile_blockers)
+    try:
+        for arm in ('codex', 'opencode'):
+            if fixture.needs_simulator:
+                manifest['simulators'][arm] = simulator_create(fixture.simulator(arm))
+                save_manifest(out, manifest)
+            # The baseline proves the frozen starting point on this Mac and warms each arm's own build folder equally.
+            baseline = run_check(Path(arms[arm]['repo']), out / 'arms' / arm, 'baseline', fixture.default_budget, manifest, arm)
+            arms[arm]['baseline'] = {key: baseline.get(key) for key in ('tests_run', 'failures', 'errors', 'returncode', 'log', 'seconds')}
+            blockers += baseline_blockers(fixture, baseline)
+            if git(Path(arms[arm]['repo']), 'status', '--porcelain'):
+                blockers.append(f'the {arm} checkout is not clean after the baseline check; the fixture writes outside its excluded build folder')
+    except A.PreflightBlocker as exc:
+        blockers.append(str(exc))
+    manifest['preparation_blockers'] = [b for b in blockers if b not in profile_blockers]
+    # Baseline simulators never outlive prepare: an abandoned prepared run leaves nothing behind. A live
+    # run creates fresh ones just before each arm's clock starts.
+    manifest['baseline_simulators'] = release_simulators(out, manifest)
+    manifest['simulators'] = {}
+    save_manifest(out, manifest)
     (out / 'DESKTOP.md').write_text(DESKTOP_STEPS + '\nCodex fixture: ' + arms['codex']['repo'] + '\n', encoding='utf-8')
-    print(json.dumps({'out': str(out), 'state': 'prepared', 'models': manifest['models'], 'budget': manifest['budget'], 'arms': arms, 'profile_blockers': profile_blockers}, indent=2))
-    if profile_blockers:
-        print('PREFLIGHT BLOCKERS (nothing launched): ' + '; '.join(profile_blockers), file=sys.stderr)
+    print(json.dumps({'out': str(out), 'state': 'prepared', 'fixture': fixture.name, 'models': manifest['models'], 'budget': manifest['budget'], 'arms': arms, 'profile_blockers': profile_blockers, 'preparation_blockers': manifest['preparation_blockers']}, indent=2))
+    if blockers:
+        print('PREFLIGHT BLOCKERS (nothing launched): ' + '; '.join(blockers), file=sys.stderr)
         return 2
     return 0
 
@@ -373,32 +489,24 @@ def launch(argv, cwd, evidence, timeout, name, env=None):
     (evidence / f'{name}.execution.json').write_text(json.dumps(record, indent=2), encoding='utf-8')
     return record
 
-def parse_check(log, expected=EXPECTED_TESTS):
-    ran = failures = errors = 0
-    reported_failed = False
-    for line in log.splitlines():
-        if line.startswith('Ran '):
-            try:
-                ran = int(line.split()[1])
-            except (IndexError, ValueError):
-                ran = 0
-        elif line.startswith('FAILED'):
-            reported_failed = True
-            for part in line.replace(',', ' ').replace('(', ' ').replace(')', ' ').split():
-                if part.startswith('failures='):
-                    failures = int(part.split('=')[1].split('[')[0])
-                elif part.startswith('errors='):
-                    errors = int(part.split('=')[1].split('[')[0])
-    return {'tests_run': ran, 'failures': failures, 'errors': errors, 'all_tests_expected': ran == expected, 'reported_failed': reported_failed, 'ok': failures == 0 and errors == 0 and (ran == expected) and (not reported_failed)}
+parse_check = FX.parse_unittest
 
-def run_check(repo, evidence, name, timeout=120, expected=EXPECTED_TESTS):
+def check_argv(manifest, arm):
+    """The frozen check for an arm; manifests from before the registry froze one shared argv."""
+    check = manifest.get('check')
+    return list(check.get(arm) or []) if isinstance(check, dict) else list(check or [])
+
+def run_check(repo, evidence, name, timeout, manifest, arm):
+    argv = check_argv(manifest, arm)
     log_path = evidence / f'{name}.check.log'
     if timeout <= 0:
-        return {'tests_run': 0, 'failures': 0, 'errors': 0, 'all_tests_expected': False, 'ok': False, 'exit_code_zero': False, 'returncode': None, 'log': None, 'command': CHECK, 'skipped': 'arm deadline already expired; the independent check never started'}
+        return {'tests_run': 0, 'failures': 0, 'errors': 0, 'all_tests_expected': False, 'ok': False, 'exit_code_zero': False, 'returncode': None, 'log': None, 'command': argv, 'skipped': 'arm deadline already expired; the independent check never started'}
+    evidence.mkdir(parents=True, exist_ok=True)
     code = None
+    started = time.monotonic()
     with log_path.open('w', encoding='utf-8') as log:
         try:
-            proc = subprocess.run(CHECK, cwd=str(repo), stdout=log, stderr=subprocess.STDOUT, timeout=max(int(timeout), 1), check=False)
+            proc = subprocess.run(argv, cwd=str(repo), stdout=log, stderr=subprocess.STDOUT, timeout=max(int(timeout), 1), check=False)
             code = proc.returncode
         except subprocess.TimeoutExpired as exc:
             log.write(f'\ndeadline expired during the independent check: {exc}\n')
@@ -406,8 +514,8 @@ def run_check(repo, evidence, name, timeout=120, expected=EXPECTED_TESTS):
         except OSError as exc:
             log.write(f'could not start the independent check: {exc}\n')
             code = 127
-    result = parse_check(log_path.read_text(encoding='utf-8', errors='replace'), expected)
-    result.update({'returncode': code, 'log': str(log_path), 'captured_outside_repo': not str(log_path).startswith(str(repo)), 'command': CHECK})
+    result = fixture_of(manifest).parse_check(log_path.read_text(encoding='utf-8', errors='replace'), manifest.get('expected_tests'))
+    result.update({'returncode': code, 'log': str(log_path), 'captured_outside_repo': not str(log_path).startswith(str(repo)), 'command': argv, 'seconds': round(time.monotonic() - started, 3)})
     result['exit_code_zero'] = code == 0
     result['ok'] = bool(result['ok'] and result['exit_code_zero'])
     return result
@@ -416,8 +524,9 @@ def scope_and_digest(repo, manifest, arm):
     changed = sorted((x for x in git(repo, 'diff', '--name-only', 'HEAD').split() if x))
     untracked = sorted((x for x in git(repo, 'ls-files', '--others', '--exclude-standard').split() if x))
     diff = subprocess.run(['git', '-C', str(repo), 'diff', '--binary', 'HEAD'], capture_output=True, check=False).stdout
-    frozen_ok = {name: A.sha256_file(repo / name) == manifest['fixture_sha256'][name] for name in FROZEN_FILES if (repo / name).exists()}
-    frozen_intact = len(frozen_ok) == len(FROZEN_FILES) and all(frozen_ok.values())
+    frozen_files = list(manifest.get('frozen_files') or [])
+    frozen_ok = {name: A.sha256_file(repo / name) == manifest['fixture_sha256'].get(name) for name in frozen_files if (repo / name).exists()}
+    frozen_intact = bool(frozen_files) and len(frozen_ok) == len(frozen_files) and all(frozen_ok.values())
     base = (manifest.get('arms', {}).get(arm) or {}).get('base')
     try:
         head = git(repo, 'rev-parse', 'HEAD')
@@ -449,7 +558,7 @@ def assistant_texts_from_records(records, agent):
 def codex_argv(manifest, repo, prompt):
     models = manifest['models']
     effort = models['effort']
-    return [manifest['binaries']['codex'], 'exec', '--json', '-C', str(repo), '--model', models['codex_cloud'], '-c', f'model_reasoning_effort="{effort}"', '-c', 'agents.enabled=true', '-c', f'''agents.default_subagent_model="{models['codex_child']}"''', '-c', f'agents.default_subagent_reasoning_effort="{effort}"', '-c', 'agents.max_concurrent_threads_per_session=1', '--sandbox', 'workspace-write', '-c', 'approval_policy="never"', prompt]
+    return [manifest['binaries']['codex'], 'exec', '--json', '-C', str(repo), '--model', models['codex_cloud'], '-c', f'model_reasoning_effort="{effort}"', '-c', 'agents.enabled=true', '-c', f'''agents.default_subagent_model="{models['codex_child']}"''', '-c', f'agents.default_subagent_reasoning_effort="{effort}"', '-c', f'agents.max_concurrent_threads_per_session={MAX_WORKERS}', '--sandbox', 'danger-full-access', '-c', 'approval_policy="never"', prompt]
 
 def opencode_argv(manifest, prompt):
     return [manifest['binaries']['opencode'], 'run', '--standalone', '--format', 'json', '--agent', 'hybrid', '--model', manifest['models']['opencode_cloud'], prompt]
@@ -501,7 +610,7 @@ def archive_rollouts(catalog, ids, evidence):
 def codex_expectations(manifest):
     models = manifest['models']
     budget = manifest['budget']
-    return {'expected_root_model': models['codex_cloud'], 'expected_child_model': models['codex_child'], 'expected_effort': models['effort'], 'max_worker_turns': budget['initial'] + budget['repair']}
+    return {'expected_root_model': models['codex_cloud'], 'expected_child_model': models['codex_child'], 'expected_effort': models['effort'], 'max_worker_turns': budget['initial'] + budget['repair'], 'max_workers': budget.get('max_workers', 1)}
 
 def window_seconds(window):
     try:
@@ -705,7 +814,7 @@ def run_codex_arm(out, manifest, client='codex-cli', root_id=None):
         evidence.mkdir(parents=True, exist_ok=True)
         archived = archive_rollouts(catalog, A.codex_tree(catalog, root_id), evidence)
         (accounting, sources) = account_codex_evidence(manifest, evidence, root_id, client, Path(manifest['codex_home']) if manifest.get('codex_home') else None)
-        check = run_check(repo, evidence, 'final', max(int(deadline - time.monotonic()), 0), manifest['expected_tests'])
+        check = run_check(repo, evidence, 'final', max(int(deadline - time.monotonic()), 0), manifest, arm)
         scope = scope_and_digest(repo, manifest, arm)
         (evidence / 'complete.patch').write_bytes(subprocess.run(['git', '-C', str(repo), 'diff', '--binary', 'HEAD'], capture_output=True, check=False).stdout)
         verdict = A.semantic_verdict(accounting['root_final_text'], scope['digest'])
@@ -740,8 +849,8 @@ def finish_opencode_arm(out, manifest, execution, snapshot, root_ids, client='op
     repo = Path(manifest['arms'][arm]['repo'])
     evidence = out / 'arms' / arm
     budget = manifest['budget']
-    accounting = A.account_opencode(snapshot, root_session_ids=root_ids, max_local_dispatches=budget['initial'] + budget['repair'], client=client, **opencode_expectations(manifest))
-    check = run_check(repo, evidence, 'final', remaining, manifest['expected_tests'])
+    accounting = A.account_opencode(snapshot, root_session_ids=root_ids, max_local_dispatches=budget['initial'] + budget['repair'], max_workers=budget.get('max_workers', 1), client=client, **opencode_expectations(manifest))
+    check = run_check(repo, evidence, 'final', remaining, manifest, arm)
     scope = scope_and_digest(repo, manifest, arm)
     (evidence / 'complete.patch').write_bytes(subprocess.run(['git', '-C', str(repo), 'diff', '--binary', 'HEAD'], capture_output=True, check=False).stdout)
     review_text = assistant_texts_from_records(snapshot['records'], 'review')
@@ -776,7 +885,7 @@ def run_opencode_arm(out, manifest):
 
 def compat_key(manifest):
     models = manifest['models']
-    return {'protocol': manifest['protocol'], 'task_sha256': A.sha256_bytes(manifest['task'].encode()), 'prompt_sha256': {name: arm.get('prompt_sha256') for (name, arm) in manifest['arms'].items()}, 'fixture_sha256': manifest['fixture_sha256'], 'models': {key: models[key] for key in ('codex_cloud', 'codex_child', 'opencode_cloud', 'effort')}, 'budget': manifest['budget'], 'check': manifest['check'], 'allowed_changed': manifest['allowed_changed'], 'expected_tests': manifest['expected_tests'], 'measurement_kind': manifest.get('measurement_kind')}
+    return {'protocol': manifest['protocol'], 'fixture': manifest.get('fixture') or DEFAULT_FIXTURE, 'task_sha256': A.sha256_bytes(manifest['task'].encode()), 'prompt_sha256': {name: arm.get('prompt_sha256') for (name, arm) in manifest['arms'].items()}, 'fixture_sha256': manifest['fixture_sha256'], 'models': {key: models[key] for key in ('codex_cloud', 'codex_child', 'opencode_cloud', 'effort')}, 'budget': manifest['budget'], 'check': manifest['check'], 'allowed_changed': manifest['allowed_changed'], 'expected_tests': manifest['expected_tests'], 'measurement_kind': manifest.get('measurement_kind')}
 
 def compare_runs(outs):
     manifests = {str(out): load_manifest(out) for out in outs}
@@ -816,6 +925,39 @@ def ratio_block(arms, threshold=0.3):
     status = 'measured' if low == high else 'target_met' if high <= threshold else 'not_met' if low > threshold else 'indeterminate'
     return {'status': status, 'threshold': threshold, 'lower_bound': low, 'upper_bound': high, 'hybrid_cloud_over_codex_cloud': low if low == high else None, 'target_met': True if high <= threshold else False if low > threshold else None, 'note': 'exact only when both arms are gap-free; otherwise rigorous bounds decide and unknown maintenance can never fake a pass'}
 
+TARGETS = {'cloud_vs_codex': 0.5, 'share': 0.35, 'stretch_share': 0.20}
+
+def seat_metrics(arms):
+    """Tokens by seat for both arms, Hybrid's cloud share, Hybrid cloud against the whole Codex cloud, and targets.
+
+    Codex cloud is its Sol planner plus its Luna workers; Hybrid cloud is its Sol planner and reviewer. Every
+    figure is withheld (None) when the evidence behind it is incomplete or failed verification.
+    """
+    seats, usable = {}, {}
+    for (arm, result) in arms.items():
+        accounting = result.get('accounting') or {}
+        verified = (result.get('evidence') or {}).get('verified', True)
+        seats[arm] = accounting.get('seats') if verified else None
+        usable[arm] = bool(seats[arm]) and bool(accounting.get('usage_complete')) and not (seats[arm].get('unknown') or {}).get('total')
+    hybrid, codex = seats.get('opencode'), seats.get('codex')
+    share = {'value': None, 'exact': False}
+    if hybrid and usable.get('opencode'):
+        total = hybrid['planner']['total'] + hybrid['worker']['total']
+        maintenance = (arms['opencode'].get('accounting') or {}).get('unknown_maintenance_total')
+        share = {'value': hybrid['planner']['total'] / total if total else None, 'exact': maintenance == 0}
+    both_accepted = all(bool((arms.get(arm) or {}).get('accepted')) for arm in ('codex', 'opencode'))
+    ratio = {'value': None, 'hybrid_cloud': None, 'codex_cloud': None}
+    if hybrid and codex and usable.get('opencode') and usable.get('codex'):
+        codex_cloud = codex['planner']['total'] + codex['worker']['total']
+        ratio = {'value': hybrid['planner']['total'] / codex_cloud if codex_cloud else None,
+                 'hybrid_cloud': hybrid['planner']['total'], 'codex_cloud': codex_cloud}
+    targets = {'both_arms_accepted': both_accepted,
+               'hybrid_cloud_at_most_half_of_codex': bool(both_accepted and ratio['value'] is not None and ratio['value'] <= TARGETS['cloud_vs_codex']),
+               'hybrid_cloud_share_at_most_0.35': bool(both_accepted and share['value'] is not None and share['value'] <= TARGETS['share']),
+               'stretch_cloud_share_at_most_0.20': bool(both_accepted and share['value'] is not None and share['value'] <= TARGETS['stretch_share'])}
+    return {'seats': seats, 'hybrid_cloud_share': share, 'cloud_vs_codex': ratio, 'targets': targets,
+            'note': 'targets count only when both arms are accepted; figures are withheld while usage is incomplete or unattributed'}
+
 def archive_and_cleanup(out, manifest, arm):
     repo = Path(manifest['arms'][arm]['repo'])
     if not repo.exists():
@@ -854,8 +996,12 @@ def archive_and_cleanup(out, manifest, arm):
     try:
         listing = []
         symlinks = []
+        excluded = [pattern.rstrip('/') for pattern in manifest.get('excluded') or []]
         with tarfile.open(tar_path, 'w:gz') as tar:
             for path in sorted(repo.rglob('*')):
+                relative = path.relative_to(repo).as_posix()
+                if any(relative == name or relative.startswith(name + '/') for name in excluded):
+                    continue
                 if path.is_symlink():
                     symlinks.append({'name': f'{arm}/' + str(path.relative_to(repo)), 'target': str((path.parent / os.readlink(path)).resolve())})
                     tar.add(path, arcname=f'{arm}/' + str(path.relative_to(repo)))
@@ -961,7 +1107,7 @@ def reaccount_arm(out, manifest, arm):
             text = ''
         else:
             snapshot = json.loads(records_path.read_text(encoding='utf-8'))
-            accounting = A.account_opencode(snapshot, root_session_ids=(retained.get('accounting') or {}).get('root_session_ids', []), max_local_dispatches=manifest['budget']['initial'] + manifest['budget']['repair'], client=(retained.get('client') or 'opencode-cli'), **opencode_expectations(manifest))
+            accounting = A.account_opencode(snapshot, root_session_ids=(retained.get('accounting') or {}).get('root_session_ids', []), max_local_dispatches=manifest['budget']['initial'] + manifest['budget']['repair'], max_workers=manifest['budget'].get('max_workers', 1), client=(retained.get('client') or 'opencode-cli'), **opencode_expectations(manifest))
             retained['reaccount_source'] = ['archived native records']
             text = assistant_texts_from_records(snapshot['records'], 'review')
     retained['verdict'] = A.semantic_verdict(text, state.get('patch_sha256') or '')
@@ -1005,7 +1151,7 @@ def build_report(out, manifest):
         own = 1 if result.get('accepted') else 0
         tokens = result.get('cloud_tokens')
         per_task[arm] = tokens / own if own and tokens is not None else None
-    metrics = {'cloud_tokens_per_completed_task': per_task, 'per_arm_completed_tasks': {arm: 1 if r.get('accepted') else 0 for (arm, r) in arms.items()}, 'per_task_note': "each arm carries its own 1 or 0 completed task; a failed arm reports null per-task with its spend retained", 'undefined_reason': None if completed else '0 completed tasks: per-task metrics are undefined, never zero', 'failed_attempts_included': True, 'ratio': ratio_block(arms), 'runner_authoring_cost': {'status': 'not_measured', 'reason': 'the runner launches no billing model itself; external authoring cost is reported separately'}}
+    metrics = {'cloud_tokens_per_completed_task': per_task, 'per_arm_completed_tasks': {arm: 1 if r.get('accepted') else 0 for (arm, r) in arms.items()}, 'per_task_note': "each arm carries its own 1 or 0 completed task; a failed arm reports null per-task with its spend retained", 'undefined_reason': None if completed else '0 completed tasks: per-task metrics are undefined, never zero', 'failed_attempts_included': True, 'ratio': ratio_block(arms), **seat_metrics(arms), 'runner_authoring_cost': {'status': 'not_measured', 'reason': 'the runner launches no billing model itself; external authoring cost is reported separately'}}
     return {'protocol': A.PROTOCOL, 'generated_utc': now(), 'out': str(out), 'machine': manifest['machine'], 'models': manifest['models'], 'budget': manifest['budget'], 'measurement_kind': manifest['measurement_kind'], 'native_config_integrity': integrity, 'frozen_fields_sha256': manifest.get('frozen_fields_sha256'), 'frozen_fields_verified': not seal_blockers, 'arms': arms, 'accepted_arms': sorted(completed), 'completed_tasks': len(completed), 'cleanup': retained_cleanup_receipts(out), 'metrics': metrics, 'caveats': manifest['notes'] + ['App sessions are labelled codex-app, never a CLI measurement', 'unknown maintenance is bounded, never an exact total', 'a changed installed native config invalidates every arm; the runner never edits it', 'report renders retained evidence only: it launches nothing, deletes nothing and needs no original home, database or config']}
 
 def render_markdown(report):
@@ -1017,6 +1163,18 @@ def render_markdown(report):
         (check, execution) = (result.get('check') or {}, result.get('execution') or {})
         failed = [name for (name, ok) in (result.get('gates') or {}).items() if not ok]
         lines.append('| ' + ' | '.join((str(v) for v in (arm, result.get('client'), result.get('accepted'), result.get('cloud_tokens'), result.get('cloud_tokens_lower_bound'), result.get('local_tokens'), result.get('unknown_maintenance'), execution.get('seconds'), f"{check.get('tests_run')}T/{check.get('failures')}F/{check.get('errors')}E", f"{execution.get('exit_code')}/{execution.get('timed_out')}", ', '.join(failed) or 'none'))) + ' |')
+    metrics = report['metrics']
+    lines += ['', '## Tokens by seat', '', '| arm | seat | model | uncached input | cached input | output | reasoning | total |', '|---|---|---|---|---|---|---|---|']
+    for (arm, seats) in sorted((metrics.get('seats') or {}).items()):
+        for seat in ('planner', 'worker', 'unknown'):
+            usage = (seats or {}).get(seat)
+            if usage and (seat != 'unknown' or usage.get('total')):
+                lines.append(f"| {arm} | {seat} | {usage.get('model') or 'unattributed'} | " + ' | '.join(str(usage.get(key)) for key in ('uncached_input', 'cached_input', 'output', 'reasoning', 'total')) + ' |')
+    share, ratio = metrics.get('hybrid_cloud_share') or {}, metrics.get('cloud_vs_codex') or {}
+    fmt = lambda value: 'n/a' if value is None else f'{value:.3f}'
+    lines += ['', f"* Hybrid cloud share (Sol / (Sol + local)): {fmt(share.get('value'))}{'' if share.get('exact') else ' (lower bound: unattributed maintenance excluded)' if share.get('value') is not None else ''}",
+              f"* Hybrid cloud / Codex cloud (Sol + Luna): {fmt(ratio.get('value'))}", '', '## Targets', '']
+    lines += [f"* {name}: {'PASS' if ok else 'FAIL'}" for (name, ok) in (metrics.get('targets') or {}).items()]
     lines += ['', '## Blockers', '']
     for (arm, result) in sorted(report['arms'].items()):
         lines.append(f'* **{arm}**: ' + ('; '.join(result.get('blockers') or []) or 'none'))
@@ -1049,6 +1207,10 @@ def closeout(out, manifest):
             entry = dict(earlier, receipt='retained from the first verified closeout')
         receipts.append(entry)
     (out / 'archive-verification.json').write_text(json.dumps(receipts, indent=2), encoding='utf-8')
+    if manifest.get('simulators'):
+        manifest['simulators_released'] = release_simulators(out, manifest)
+        manifest['simulators'] = {}
+        save_manifest(out, manifest)
     return receipts
 
 def write_report(out, manifest):
@@ -1100,6 +1262,13 @@ def launch_input_blockers(out, manifest, launch_arms):
 
 def preflight(manifest, out=None, launch_arms=('codex', 'opencode')):
     blockers = list(manifest['native_profile']['blockers'])
+    blockers.extend(manifest.get('preparation_blockers') or [])
+    if manifest.get('fixture'):
+        for arm in launch_arms:
+            baseline = (manifest['arms'].get(arm) or {}).get('baseline')
+            if not baseline:
+                blockers.append(f'the {arm} baseline check never ran during prepare, so the frozen starting point is unproven on this Mac')
+
     blockers.extend(frozen_manifest_blockers(manifest))
     blockers.extend(model_blockers(manifest))
     blockers.extend(budget_blockers((manifest.get('budget') or {}).get('wall_clock_seconds_per_arm')))
@@ -1134,12 +1303,14 @@ def prepared_option_mismatches(args, manifest):
     """Options given to a later `run` that differ from what `prepare` froze into the manifest."""
     models = manifest.get('models') or {}
     expand = lambda value: str(Path(value).expanduser()) if value else None
-    frozen = {'--local-model': (args.local_model, models.get('local')),
+    timeout = fixture_of({'fixture': args.fixture}).default_budget if args.timeout is None else args.timeout
+    frozen = {'--fixture': (args.fixture, manifest.get('fixture') or DEFAULT_FIXTURE),
+              '--local-model': (args.local_model, models.get('local')),
               '--codex-cloud-model': (args.codex_cloud_model, models.get('codex_cloud')),
               '--opencode-cloud-model': (args.opencode_cloud_model, models.get('opencode_cloud')),
               '--child-model': (args.child_model, models.get('codex_child')),
               '--effort': (args.effort, models.get('effort')),
-              '--timeout': (args.timeout, (manifest.get('budget') or {}).get('wall_clock_seconds_per_arm')),
+              '--timeout': (timeout, (manifest.get('budget') or {}).get('wall_clock_seconds_per_arm')),
               '--codex-bin': (expand(args.codex_bin), (manifest.get('binaries') or {}).get('codex')),
               '--opencode-bin': (expand(args.opencode_bin), (manifest.get('binaries') or {}).get('opencode')),
               '--codex-home': (expand(args.codex_home), manifest.get('codex_home')),
@@ -1181,6 +1352,7 @@ def cmd_run(args):
     save_manifest(out, manifest)
     for arm in ('codex', 'opencode'):
         try:
+            start_arm_simulator(out, manifest, arm)
             result = run_codex_arm(out, manifest) if arm == 'codex' else run_opencode_arm(out, manifest)
         except Exception as exc:
             result = record_arm_failure(out, manifest, arm, 'codex-cli' if arm == 'codex' else 'opencode-cli', [f'the {arm} arm failed outside its own evidence handling: {type(exc).__name__}: {exc}; the attempt is retained with unknown cost'], None, stage='crash')
@@ -1200,6 +1372,9 @@ def cmd_finish(args):
     manifest = load_manifest(out)
     if 'codex' in manifest['completed_arms']:
         print('refusing to import the Codex arm twice', file=sys.stderr)
+        return 2
+    if fixture_of(manifest).needs_simulator:
+        print(f"refusing a desktop App import for the {manifest.get('fixture')} fixture: its arms need a run-owned simulator that only `run --live` creates; use the CLI arms", file=sys.stderr)
         return 2
     blockers = preflight(manifest, out, launch_arms=('opencode',))
     if blockers:
@@ -1261,6 +1436,22 @@ def cmd_report(args):
     print(json.dumps({'accepted_arms': report['accepted_arms'], 'ratio': report['metrics']['ratio'], 'report': str(out / 'REPORT.md'), 'cleanup': report['cleanup'], 'offline_render': True, 'deleted_or_archived': False}, indent=2))
     return 0
 
+def spread(values):
+    values = sorted(v for v in values if v is not None)
+    if not values:
+        return {'median': None, 'min': None, 'max': None, 'rounds_with_value': 0}
+    middle = len(values) // 2
+    median = values[middle] if len(values) % 2 else (values[middle - 1] + values[middle]) / 2
+    return {'median': median, 'min': values[0], 'max': values[-1], 'rounds_with_value': len(values)}
+
+def summarise_rounds(reports):
+    """Reliability and token figures across repeated rounds; a missing value is never counted as zero."""
+    accepted = {arm: f"{sum(1 for r in reports if (r['arms'].get(arm) or {}).get('accepted'))}/{sum(1 for r in reports if arm in r['arms'])}" for arm in ('codex', 'opencode')}
+    return {'rounds': len(reports), 'accepted': accepted,
+            'hybrid_cloud_share': spread([(r['metrics'].get('hybrid_cloud_share') or {}).get('value') for r in reports]),
+            'cloud_vs_codex': spread([(r['metrics'].get('cloud_vs_codex') or {}).get('value') for r in reports]),
+            'targets_held_every_round': bool(reports) and all(all(ok for (name, ok) in ((r['metrics'].get('targets') or {'missing': False}).items()) if not name.startswith('stretch')) for r in reports)}
+
 def cmd_compare(args):
     outs = [resolve_out(raw, fresh=False) for raw in args.outs]
     (blockers, differences) = compare_runs(outs)
@@ -1274,13 +1465,18 @@ def cmd_compare(args):
     ratios = {}
     for (label, report) in reports.items():
         ratios[label] = report['metrics']['ratio']
-    comparison = {'blockers': blockers, 'compatibility_differences': differences, 'rows': rows, 'ratios': ratios, 'caveats': ['every report here is recomputed from sealed retained evidence; a cached report.json is never trusted', 'cached prefix state differs per Mac and stays an unknown caveat', 'raw tokens are not quota or price', 'failed/timeout cost is retained, never dropped']}
+    rounds = summarise_rounds(list(reports.values()))
+    comparison = {'blockers': blockers, 'compatibility_differences': differences, 'rows': rows, 'ratios': ratios, 'rounds': rounds, 'caveats': ['every report here is recomputed from sealed retained evidence; a cached report.json is never trusted', 'cached prefix state differs per Mac and stays an unknown caveat', 'raw tokens are not quota or price', 'failed/timeout cost is retained, never dropped']}
     target = Path(args.out_dir).resolve() if args.out_dir else outs[0]
     target.mkdir(parents=True, exist_ok=True)
     (target / 'comparison.json').write_text(json.dumps(comparison, indent=2), encoding='utf-8')
     columns = list(rows[0]) if rows else ['run']
     lines = ['# Cross-run comparison', '', '| ' + ' | '.join(columns) + ' |', '|' + '---|' * len(columns)]
     lines += ['| ' + ' | '.join((str(row.get(key)) for key in columns)) + ' |' for row in rows]
+    lines += ['', '## Rounds', '', f"* accepted: {rounds['accepted']}",
+              f"* Hybrid cloud share: {json.dumps(rounds['hybrid_cloud_share'])}",
+              f"* Hybrid cloud / Codex cloud: {json.dumps(rounds['cloud_vs_codex'])}",
+              f"* all targets held in every round: {rounds['targets_held_every_round']}"]
     lines += ['', '## Ratios', '', '```json', json.dumps(ratios, indent=2), '```', '', '## Compatibility blockers', '']
     lines += [f'* {blocker}' for blocker in blockers] or ['* none']
     lines += ['', '## Intended differences (allowed to differ)', '', '```json', json.dumps(differences, indent=2), '```']
@@ -1296,7 +1492,8 @@ def parser():
         cmd.add_argument('--out', required=True, help='fresh directory OUTSIDE this repository')
         cmd.add_argument('--local-model', required=True, help='installed local model id, e.g. omlx/<id>')
         cmd.add_argument('--label', help="this Mac's label")
-        cmd.add_argument('--timeout', type=int, default=DEFAULT_BUDGET, help='per-arm freeze in seconds (default 180)')
+        cmd.add_argument('--fixture', default=DEFAULT_FIXTURE, choices=sorted(FX.FIXTURES), help='frozen benchmark task (default ttl-python)')
+        cmd.add_argument('--timeout', type=int, default=None, help="per-arm wall clock in seconds (default: the fixture's, 180 for ttl-python, 1200 for swiftui-list)")
         cmd.add_argument('--codex-bin', default='codex')
         cmd.add_argument('--opencode-bin', default='opencode')
         cmd.add_argument('--codex-home', default=str(Path.home() / '.codex'))

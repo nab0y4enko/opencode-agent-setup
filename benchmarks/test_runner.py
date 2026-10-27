@@ -7,12 +7,14 @@ import sqlite3
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import accounting as A
+import fixtures as FX
 import run as R
 import test_runner_helpers as H
 (ROOT, CHILD) = (H.ROOT_ID, H.CHILD_ID)
@@ -152,7 +154,10 @@ class LaunchPolicy(unittest.TestCase):
         self.assertEqual(R.permission_blockers(codex), [])
         self.assertEqual(R.permission_blockers(R.opencode_argv(self.manifest, 'prompt')), [])
         self.assertIn('--sandbox', codex)
-        self.assertIn('workspace-write', codex)
+        # Full access is the owner's daily Codex mode and was approved for the benchmark; it is chosen
+        # through the documented sandbox mode, never through a bypass flag.
+        self.assertEqual(codex[codex.index('--sandbox') + 1], 'danger-full-access')
+        self.assertIn('agents.max_concurrent_threads_per_session=4', codex)
         self.assertNotIn('--config', codex)
         self.assertEqual(codex[codex.index('--model') + 1], SOL)
 
@@ -252,6 +257,18 @@ class OwnedCleanup(unittest.TestCase):
         self.assertEqual(report['status'], 'archived_and_removed', report)
         self.assertTrue(report['bundle_verified'])
 
+    def test_the_archive_skips_the_build_folder_and_still_verifies(self):
+        build = self.repo / '.bench-build' / 'DerivedData'
+        build.mkdir(parents=True)
+        (build / 'huge.o').write_bytes(b'0' * 4096)
+        manifest = dict(self.manifest(self.repo), excluded=['.bench-build/'])
+        report = R.archive_and_cleanup(self.out, manifest, 'codex')
+        self.assertEqual(report['status'], 'archived_and_removed', report)
+        with tarfile.open(self.out / 'archives' / 'codex-repo.tar.gz') as tar:
+            names = tar.getnames()
+        self.assertIn('codex/ttl_cache.py', names)
+        self.assertFalse([name for name in names if '.bench-build' in name])
+
     def test_a_symlinked_component_inside_the_run_is_refused_before_archive_or_delete(self):
         outside = Path(self.raw) / 'unrelated-tree'
         outside.mkdir()
@@ -295,10 +312,105 @@ class FixtureCheckout(unittest.TestCase):
             config = Path(raw) / 'gitconfig'
             config.write_text(f'[core]\n\thooksPath = {hooks}\n[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = /nonexistent/gpg\n', encoding='utf-8')
             with mock.patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': str(config)}):
-                base = R.make_checkout(Path(raw) / 'repo')
+                base = R.make_checkout(Path(raw) / 'repo', FX.get('ttl-python'))
             self.assertEqual(len(base), 40)
             self.assertFalse((Path(raw) / 'repo' / 'HOOK').exists())
             self.assertEqual(R.git(Path(raw) / 'repo', 'status', '--porcelain'), '')
+
+class FixtureRegistry(unittest.TestCase):
+
+    def test_ttl_python_keeps_its_original_task_check_and_budget(self):
+        fixture = FX.get('ttl-python')
+        self.assertEqual((fixture.expected_tests, fixture.expected_baseline_failures, fixture.default_budget), (12, 3, 180))
+        self.assertEqual(fixture.allowed_changed, ['ttl_cache.py'])
+        self.assertEqual(fixture.check_argv('codex'), ['python3', '-m', 'unittest', '-v'])
+        self.assertEqual(A.sha256_bytes(fixture.task.encode()), 'b50159fe05707e38ee1b1ba9535dbb03f3ef70ff54f0b3cfbcf228d6e410d406')
+        self.assertEqual(fixture.files(), ['README.md', 'test_ttl_cache.py', 'ttl_cache.py'])
+
+    def test_swiftui_list_runs_its_frozen_check_on_the_arm_simulator(self):
+        fixture = FX.get('swiftui-list')
+        self.assertEqual(fixture.check_argv('opencode'), ['./check.sh', 'bench-opencode'])
+        self.assertEqual((fixture.expected_tests, fixture.expected_baseline_failures), (12, 5))
+        self.assertTrue(set(fixture.frozen_files) | set(fixture.allowed_changed) <= set(fixture.files()))
+        self.assertFalse(set(fixture.frozen_files) & set(fixture.allowed_changed))
+        prompts = R.build_prompts(fixture=fixture)
+        self.assertIn('./check.sh bench-codex', prompts['codex'])
+        self.assertIn('./check.sh bench-opencode', prompts['opencode'])
+        self.assertTrue(prompts['codex'].startswith(fixture.task) and prompts['opencode'].startswith(fixture.task))
+
+    def test_unknown_fixture_is_a_preflight_blocker(self):
+        with self.assertRaises(A.PreflightBlocker):
+            R.fixture_of({'fixture': 'kotlin-app'})
+
+    def test_check_summary_fails_closed(self):
+        parse = FX.get('swiftui-list').parse_check
+        green = parse('TESTS total=12 passed=12 failed=0 skipped=0\n')
+        self.assertTrue(green['ok'])
+        red = parse('TESTS total=12 passed=7 failed=5 skipped=0\n' + ''.join(f'FAILED T/t{i}(): x\n' for i in range(5)))
+        self.assertEqual((red['ok'], red['failures'], len(red['failed_tests'])), (False, 5, 5))
+        for broken in ('', 'TESTS total=0 passed=0 failed=0 skipped=0\nERROR no result bundle\n',
+                       'TESTS total=12 passed=12 failed=0 skipped=0\nTESTS total=12 passed=12 failed=0 skipped=0\n',
+                       'TESTS total=12 passed=11 failed=0 skipped=1\n', 'TESTS total=12 passed=10 failed=0 skipped=0\n',
+                       'TESTS total=11 passed=11 failed=0 skipped=0\n'):
+            with self.subTest(broken=broken):
+                self.assertFalse(parse(broken)['ok'])
+        self.assertEqual(parse('')['tests_run'], 0)
+
+class SimulatorLifecycle(unittest.TestCase):
+    """Only simulators this run created, recorded by UDID and still carrying its name, are ever deleted."""
+
+    RUNTIMES = {'runtimes': [{'platform': 'iOS', 'isAvailable': True, 'version': '27.0', 'identifier': 'rt-27',
+                              'supportedDeviceTypes': [{'productFamily': 'iPhone', 'identifier': 'dt-iphone'}]}]}
+
+    def fake(self, devices):
+        calls = []
+
+        def simctl(*args):
+            calls.append(args)
+            if args[:2] == ('list', 'devices'):
+                return json.dumps({'devices': {'rt-27': devices}})
+            if args[:2] == ('list', 'runtimes'):
+                return json.dumps(self.RUNTIMES)
+            if args[0] == 'create':
+                return 'NEW-UDID\n'
+            return ''
+        return calls, mock.patch.object(R, 'simctl', simctl)
+
+    def test_an_existing_bench_simulator_is_refused_and_untouched(self):
+        (calls, patch) = self.fake([{'name': 'bench-codex', 'udid': 'THEIRS', 'state': 'Booted'}])
+        with patch, self.assertRaises(A.PreflightBlocker):
+            R.simulator_create('bench-codex')
+        self.assertFalse([c for c in calls if c[0] in ('create', 'delete', 'shutdown', 'erase')])
+
+    def test_create_records_the_newest_runtime_and_an_iphone(self):
+        (calls, patch) = self.fake([])
+        with patch:
+            record = R.simulator_create('bench-codex')
+        self.assertEqual((record['udid'], record['runtime'], record['device_type']), ('NEW-UDID', 'rt-27', 'dt-iphone'))
+        self.assertIn(('create', 'bench-codex', 'dt-iphone', 'rt-27'), calls)
+
+    def test_delete_only_the_recorded_device_with_a_matching_name(self):
+        record = {'name': 'bench-codex', 'udid': 'U1'}
+        (calls, patch) = self.fake([{'name': 'renamed-by-user', 'udid': 'U1', 'state': 'Shutdown'}])
+        with patch:
+            self.assertEqual(R.simulator_delete(record)['status'], 'blocked_name_mismatch')
+        self.assertFalse([c for c in calls if c[0] == 'delete'])
+        (calls, patch) = self.fake([{'name': 'bench-codex', 'udid': 'U1', 'state': 'Booted'},
+                                    {'name': 'bench-codex-mine', 'udid': 'U2', 'state': 'Booted'}])
+        with patch:
+            self.assertEqual(R.simulator_delete(record)['status'], 'deleted')
+        self.assertEqual([c for c in calls if c[0] in ('shutdown', 'delete')], [('shutdown', 'U1'), ('delete', 'U1')])
+        (calls, patch) = self.fake([])
+        with patch:
+            self.assertEqual(R.simulator_delete(record)['status'], 'already_absent')
+
+    def test_a_wrong_baseline_blocks_the_run(self):
+        fixture = FX.get('swiftui-list')
+        self.assertEqual(R.baseline_blockers(fixture, {'tests_run': 12, 'failures': 5, 'errors': 0}), [])
+        for wrong in ({'tests_run': 12, 'failures': 0, 'errors': 0}, {'tests_run': 0, 'failures': 0, 'errors': 1},
+                      {'tests_run': 11, 'failures': 5, 'errors': 0}):
+            with self.subTest(wrong=wrong):
+                self.assertTrue(R.baseline_blockers(fixture, wrong))
 
 class FakeCliHarness(unittest.TestCase):
     timeout = 60
@@ -358,7 +470,7 @@ class TwoArmFakeRun(FakeCliHarness):
         plan = json.loads((self.out / 'dry-run-plan.json').read_text('utf-8'))
         self.assertFalse(plan['models_launched'])
         self.assertEqual(plan['blockers'], [])
-        self.assertEqual(plan['budget'], {'wall_clock_seconds_per_arm': 60, 'initial': 1, 'repair': 1})
+        self.assertEqual(plan['budget'], {'wall_clock_seconds_per_arm': 60, 'initial': 1, 'repair': 1, 'max_workers': 4})
         self.assertIn('--sandbox', plan['planned_argv']['codex'])
         self.assertIn('hybrid', plan['planned_argv']['opencode'])
 
@@ -447,6 +559,38 @@ class TwoArmFakeRun(FakeCliHarness):
             self.assertFalse(report['arms'][arm]['gates']['installed_native_config_unchanged'])
             self.assertTrue(any(('global configuration edit invalidates' in blocker) for blocker in report['arms'][arm]['blockers']))
         self.assertEqual(report['metrics']['ratio']['status'], 'undefined')
+
+    def test_report_shows_tokens_by_seat_share_ratio_and_targets(self):
+        self.assertEqual(self.live()[0], 0)
+        report = self.report()
+        seats = report['metrics']['seats']
+        self.assertEqual((seats['codex']['planner']['model'], seats['codex']['planner']['total']), (SOL, 120))
+        self.assertEqual((seats['codex']['worker']['model'], seats['codex']['worker']['total']), (LUNA, 60))
+        self.assertEqual((seats['opencode']['planner']['total'], seats['opencode']['worker']['total']), (2000, 700))
+        self.assertEqual(seats['opencode']['worker']['model'], 'omlx/test-local')
+        metrics = report['metrics']
+        self.assertAlmostEqual(metrics['hybrid_cloud_share']['value'], 2000 / 2700)
+        self.assertFalse(metrics['hybrid_cloud_share']['exact'], 'a 200-token maintenance gap makes the share a bound')
+        self.assertAlmostEqual(metrics['cloud_vs_codex']['value'], 2000 / 180)
+        self.assertEqual(metrics['targets'], {'both_arms_accepted': True, 'hybrid_cloud_at_most_half_of_codex': False,
+                                              'hybrid_cloud_share_at_most_0.35': False, 'stretch_cloud_share_at_most_0.20': False})
+        markdown = (self.out / 'REPORT.md').read_text('utf-8')
+        self.assertIn('## Tokens by seat', markdown)
+        self.assertIn(f'| codex | planner | {SOL} |', markdown)
+        self.assertIn('| opencode | worker | omlx/test-local |', markdown)
+        self.assertIn('## Targets', markdown)
+
+    def test_compare_summarises_repeated_rounds(self):
+        self.assertEqual(self.live()[0], 0)
+        second = self.raw / 'round-2'
+        shutil.copytree(self.out, second)
+        (code, text) = self.cli(['compare', str(self.out), str(second), '--out-dir', str(self.raw / 'cmp')])
+        self.assertEqual(code, 0, text)
+        rounds = json.loads((self.raw / 'cmp' / 'comparison.json').read_text('utf-8'))['rounds']
+        self.assertEqual(rounds['accepted'], {'codex': '2/2', 'opencode': '2/2'})
+        self.assertAlmostEqual(rounds['hybrid_cloud_share']['median'], 2000 / 2700)
+        self.assertAlmostEqual(rounds['cloud_vs_codex']['median'], 2000 / 180)
+        self.assertIn('## Rounds', (self.raw / 'cmp' / 'COMPARISON.md').read_text('utf-8'))
 
     def test_compare_accepts_only_the_intended_differences_and_refuses_a_mismatch(self):
         self.assertEqual(self.live()[0], 0)

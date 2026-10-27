@@ -112,10 +112,40 @@ class CodexFailClosed(unittest.TestCase):
         self.assertEqual(three['sessions'][1]['turns'], 3)
         self.assertEqual(three['root_dispatch_calls']['followup'], 0)
         self.assertFalse(three['routing_ok'])
-        self.assertTrue(blockers_have(three, 'worker ran 3 turn(s)'))
+        self.assertTrue(blockers_have(three, f'worker {H.CHILD} ran 3 turn(s)'))
         repaired = worker_turns(2)
         self.assertTrue(repaired['routing_ok'], repaired['blockers'])
         self.assertFalse(worker_turns(2, max_worker_turns=1)['routing_ok'])
+
+    def test_up_to_four_parallel_luna_workers_each_routed_and_finished(self):
+        def children(count, **child):
+            catalog = H.codex_catalog()
+            ids = [H.ROOT]
+            for index in range(count):
+                sid = f'w{index}'
+                catalog[sid] = H.entry(sid, parent=H.ROOT, total=H.usage(100, 50, 10, 2), **dict({'model': H.LUNA}, **child))
+                ids.append(sid)
+            del catalog[H.CHILD]
+            catalog[H.ROOT]['spawn_calls'] = count
+            return A.account_codex(catalog, ids, **H.CODEX_KW)
+        four = children(4)
+        self.assertTrue(four['routing_ok'], four['blockers'])
+        self.assertEqual(four['children'], 4)
+        self.assertEqual(four['seats']['worker']['total'], 4 * 110)
+        five = children(5)
+        self.assertFalse(five['routing_ok'])
+        self.assertTrue(blockers_have(five, 'at most 4'))
+        wrong = children(2, model='gpt-6.1-sol')
+        self.assertFalse(wrong['routing_ok'])
+        self.assertEqual(wrong['seats']['worker']['total'], 0)
+
+    def test_seats_split_sol_planner_and_luna_worker_and_sum_to_the_total(self):
+        result = codex()
+        planner, worker = result['seats']['planner'], result['seats']['worker']
+        self.assertEqual((planner['model'], worker['model']), (H.SOL, H.LUNA))
+        self.assertEqual((planner['uncached_input'], planner['cached_input'], planner['output'], planner['reasoning']), (600, 400, 300, 60))
+        self.assertEqual(planner['total'] + worker['total'] + result['seats']['unknown']['total'], result['cloud_total'])
+        self.assertEqual(result['by_model'][H.LUNA]['total'], worker['total'])
 
     def test_missing_child_model_is_never_assumed(self):
         result = codex(child_models=[])
@@ -174,10 +204,11 @@ class CodexFailClosed(unittest.TestCase):
     def test_routing_errors_block_the_arm(self):
         catalog = H.codex_catalog()
         catalog['c2'] = H.entry('c2', parent=H.ROOT, model=H.LUNA, total=H.usage(10, 0, 10, 0))
+        catalog[H.ROOT]['spawn_calls'] = 2
         two_children = A.account_codex(catalog, [H.ROOT, H.CHILD, 'c2'], **H.CODEX_KW)
         self.assertEqual(two_children['children'], 2)
-        self.assertFalse(two_children['routing_ok'])
-        self.assertTrue(blockers_have(two_children, 'exactly one Luna child'))
+        self.assertTrue(two_children['routing_ok'], two_children['blockers'])
+        self.assertFalse(A.account_codex(catalog, [H.ROOT, H.CHILD, 'c2'], max_workers=1, **H.CODEX_KW)['routing_ok'])
         editing_catalog = H.codex_catalog()
         editing_catalog[H.ROOT]['edit_calls'] = 3
         editing = A.account_codex(editing_catalog, [H.ROOT, H.CHILD], **H.CODEX_KW)
@@ -432,8 +463,11 @@ class OpenCodeAccounting(unittest.TestCase):
 
     def test_frozen_shape_of_the_arm_is_enforced(self):
         extra = H.hybrid_arm(worker=lambda rec: rec['session'].__setitem__('agent', 'explore'))
-        self.assertTrue(any('unexpected native session' in b for b in extra['blockers']))
-        self.assertTrue(any('exactly one general local worker' in b for b in extra['blockers']))
+        self.assertTrue(any('at least one general local worker' in b for b in extra['blockers']))
+        cloud_explore = H.hybrid_arm(worker=lambda rec: rec['session'].__setitem__('agent', 'explore'))
+        self.assertFalse(cloud_explore['routing_ok'])
+        stranger = H.hybrid_arm(worker=lambda rec: rec['session'].__setitem__('agent', 'build'))
+        self.assertTrue(any('unexpected native session' in b for b in stranger['blockers']))
         no_review = [r for r in H.arm_records() if r['session']['id'] != H.REVIEW]
         self.assertTrue(blockers_have(H.hybrid_arm(no_review), 'no review subagent session'))
         editing = H.hybrid_arm(root=lambda rec: rec['messages'].__setitem__(
@@ -460,6 +494,50 @@ class OpenCodeAccounting(unittest.TestCase):
         self.assertEqual(root['tools'], {'edit': 1, 'shell': 1})
         self.assertEqual(root['edit_calls'], 1)
         self.assertTrue(blockers_have(editing, 'must not implement'))
+
+    def test_parallel_local_workers_and_explore_sessions_have_bounds(self):
+        def local(sid, agent, turns=1, provider=H.LOCAL, model=H.LOCAL_MODEL, finish='stop'):
+            messages = []
+            for _ in range(turns):
+                messages += [('user', H.user_msg()),
+                             ('assistant', H.assistant_msg({'input': 100, 'output': 10}, provider=provider,
+                                                           model=model, agent=agent, finish=finish))]
+            return H.record(sid, agent, {'providerID': provider, 'modelID': model},
+                            {'input': 100 * turns, 'output': 10 * turns}, messages, parent=H.ROOT)
+
+        def arm(workers=1, explores=0, **worker):
+            records = [r for r in H.arm_records() if r['session']['id'] != H.CHILD]
+            records += [local(f'w{i}', 'general', **worker) for i in range(workers)]
+            records += [local(f'e{i}', 'explore') for i in range(explores)]
+            return H.hybrid_arm(records)
+        best = arm(workers=4, explores=2)
+        self.assertTrue(best['routing_ok'], best['blockers'])
+        self.assertEqual(best['seats']['worker']['total'], 6 * 110)
+        self.assertEqual(best['by_role']['explore']['total'], 2 * 110)
+        self.assertTrue(blockers_have(arm(workers=5), 'at most 4'))
+        self.assertTrue(blockers_have(arm(explores=3), 'at most 2 explore'))
+        self.assertFalse(arm(workers=2, turns=2)['blockers'], 'one repair per worker is allowed')
+        self.assertTrue(blockers_have(arm(turns=3), 'dispatches'))
+        self.assertFalse(arm(provider=H.CLOUD, model=H.CLOUD_MODEL)['routing_ok'])
+        self.assertTrue(blockers_have(arm(finish=''), 'unfinished'))
+
+    def test_seats_follow_the_recorded_model_of_each_request(self):
+        result = H.hybrid_arm()
+        planner, worker = result['seats']['planner'], result['seats']['worker']
+        self.assertEqual((planner['model'], worker['model']), (f'{H.CLOUD}/{H.CLOUD_MODEL}', H.LOCAL_QUALIFIED))
+        self.assertEqual((planner['uncached_input'], planner['cached_input'], planner['output'], planner['reasoning']), (1100, 400, 400, 100))
+        self.assertEqual(planner['total'], result['known_lower_bound'])
+        self.assertEqual(worker['total'], result['local_total'])
+        self.assertEqual(result['by_role']['review']['total'], 300)
+
+        def switched(rec):
+            rec['messages'].append({'id': f'{H.REVIEW}:9', 'session_id': H.REVIEW, 'seq': 9, 'type': 'assistant',
+                                    'data': H.assistant_msg({'input': 50, 'output': 5}, provider=H.LOCAL,
+                                                            model=H.LOCAL_MODEL, agent='review'), 'time_created': 11})
+        mixed = H.hybrid_arm(review=switched)
+        self.assertEqual(mixed['seats']['worker']['total'], worker['total'] + 55)
+        self.assertEqual(mixed['by_role']['review']['total'], 355)
+        self.assertFalse(mixed['routing_ok'])
 
     def test_every_assistant_request_is_recorded_on_a_clean_arm(self):
         result = H.hybrid_arm()
