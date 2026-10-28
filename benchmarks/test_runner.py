@@ -257,7 +257,7 @@ class OwnedCleanup(unittest.TestCase):
         self.assertEqual(report['status'], 'archived_and_removed', report)
         self.assertTrue(report['bundle_verified'])
 
-    def test_the_archive_skips_the_build_folder_and_still_verifies(self):
+    def test_the_archive_preserves_the_build_folder_and_still_verifies(self):
         build = self.repo / '.bench-build' / 'DerivedData'
         build.mkdir(parents=True)
         (build / 'huge.o').write_bytes(b'0' * 4096)
@@ -267,7 +267,7 @@ class OwnedCleanup(unittest.TestCase):
         with tarfile.open(self.out / 'archives' / 'codex-repo.tar.gz') as tar:
             names = tar.getnames()
         self.assertIn('codex/ttl_cache.py', names)
-        self.assertFalse([name for name in names if '.bench-build' in name])
+        self.assertIn('codex/.bench-build/DerivedData/huge.o', names)
 
     def test_a_symlinked_component_inside_the_run_is_refused_before_archive_or_delete(self):
         outside = Path(self.raw) / 'unrelated-tree'

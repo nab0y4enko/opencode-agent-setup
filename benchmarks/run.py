@@ -12,6 +12,7 @@ Commands (every path and model choice is an explicit per-machine argument):
   compare OUT [OUT ...] offline; refuses frozen-field mismatches between Macs.
 """
 import argparse
+import datetime
 import json
 import os
 import platform
@@ -25,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import accounting as A
 import fixtures as FX
+import hardware
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_FIXTURE = 'ttl-python'
 DEFAULT_CLOUD_CODEX = 'gpt-6.1-sol'
@@ -95,8 +97,15 @@ def config_integrity(manifest):
             current = A.sha256_file(Path(path))
         except OSError:
             return {'status': 'missing', 'path': path, 'frozen_sha256': frozen, 'current_sha256': None, 'changed': True, 'source': 'live'}
-        return {'status': 'unchanged' if current == frozen else 'changed', 'path': path, 'frozen_sha256': frozen,
-                'current_sha256': current, 'changed': current != frozen, 'source': 'live'}
+        resolved_changed = False
+        if 'snapshot' in record:
+            try:
+                resolved_changed = A.config_snapshot(Path(path), os.environ)['snapshot'] != record['snapshot']
+            except (A.PreflightBlocker, OSError):
+                resolved_changed = True
+        changed = current != frozen or resolved_changed
+        return {'status': 'changed' if changed else 'unchanged', 'path': path, 'frozen_sha256': frozen,
+                'current_sha256': current, 'changed': changed, 'resolved_snapshot_changed': resolved_changed, 'source': 'live'}
     return {'status': 'unavailable', 'path': path, 'frozen_sha256': frozen, 'current_sha256': None, 'changed': None, 'source': 'live'}
 
 def report_config_integrity(manifest):
@@ -122,7 +131,7 @@ def report_config_integrity(manifest):
 def machine_info(bins):
     pages = os.sysconf('SC_PHYS_PAGES') if hasattr(os, 'sysconf') else 0
     size = os.sysconf('SC_PAGE_SIZE') if hasattr(os, 'sysconf') else 0
-    return {'label': None, 'platform': platform.platform(), 'system': platform.system(), 'machine': platform.machine(), 'macos': platform.mac_ver()[0] or None, 'python': platform.python_version(), 'physical_memory_bytes': int(pages) * int(size) if pages and size else None, 'cpu_count': os.cpu_count(), 'git': tool_version('git'), 'codex': tool_version(bins.get('codex')), 'opencode': tool_version(bins.get('opencode'))}
+    return {'label': None, 'platform': platform.platform(), 'system': platform.system(), 'machine': platform.machine(), 'macos': platform.mac_ver()[0] or None, 'python': platform.python_version(), 'physical_memory_bytes': int(pages) * int(size) if pages and size else None, 'cpu_count': os.cpu_count(), 'hardware': hardware.mac_hardware() if platform.system() == 'Darwin' else {'status': 'unavailable'}, 'git': tool_version('git'), 'codex': tool_version(bins.get('codex')), 'opencode': tool_version(bins.get('opencode'))}
 
 def resolve_out(raw, *, fresh):
     path = Path(raw).expanduser().resolve()
@@ -319,7 +328,14 @@ def simulator_delete(record):
     return dict(receipt, status='deleted')
 
 def release_simulators(out, manifest):
-    receipts = [simulator_delete(record) for record in (manifest.get('simulators') or {}).values()]
+    receipts = []
+    retained = {}
+    for arm, record in (manifest.get('simulators') or {}).items():
+        receipt = simulator_delete(record)
+        receipts.append(receipt)
+        if receipt.get('status') not in ('deleted', 'already_absent'):
+            retained[arm] = record
+    manifest['simulators'] = retained
     if receipts:
         path = out / 'simulator-cleanup.json'
         try:
@@ -329,14 +345,27 @@ def release_simulators(out, manifest):
         path.write_text(json.dumps(earlier + receipts, indent=2), encoding='utf-8')
     return receipts
 
+def create_owned_simulator(out, manifest, arm, name):
+    """Defer Ctrl-C until the new device's ownership is durable, including in native children."""
+    if not hasattr(signal, 'pthread_sigmask'):
+        raise A.PreflightBlocker('creating a run-owned simulator requires POSIX signal masking')
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})
+    try:
+        record = simulator_create(name)
+        manifest.setdefault('simulators', {})[arm] = record
+        save_manifest(out, manifest)
+        return record
+    finally:
+        # Restoring the caller's mask delivers a pending SIGINT only after the saved
+        # UDID lets the caller's interruption handler delete exactly its own device.
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+
 def start_arm_simulator(out, manifest, arm):
     """Create and boot the arm's simulator before its clock starts, so boot time is equal and untimed."""
     fixture = fixture_of(manifest)
     if not fixture.needs_simulator:
         return None
-    record = simulator_create(fixture.simulator(arm))
-    manifest.setdefault('simulators', {})[arm] = record
-    save_manifest(out, manifest)
+    record = create_owned_simulator(out, manifest, arm, fixture.simulator(arm))
     simctl('boot', record['udid'])
     simctl('bootstatus', record['udid'], '-b')
     record['booted_utc'] = now()
@@ -381,11 +410,11 @@ def cmd_prepare(args):
     manifest['frozen_fields_sha256'] = frozen_fields_sha256(manifest)
     save_manifest(out, manifest)
     blockers = list(profile_blockers)
+    interrupted = False
     try:
         for arm in ('codex', 'opencode'):
             if fixture.needs_simulator:
-                manifest['simulators'][arm] = simulator_create(fixture.simulator(arm))
-                save_manifest(out, manifest)
+                create_owned_simulator(out, manifest, arm, fixture.simulator(arm))
             # The baseline proves the frozen starting point on this Mac and warms each arm's own build folder equally.
             baseline = run_check(Path(arms[arm]['repo']), out / 'arms' / arm, 'baseline', fixture.default_budget, manifest, arm)
             arms[arm]['baseline'] = {key: baseline.get(key) for key in ('tests_run', 'failures', 'errors', 'returncode', 'log', 'seconds')}
@@ -394,14 +423,26 @@ def cmd_prepare(args):
                 blockers.append(f'the {arm} checkout is not clean after the baseline check; the fixture writes outside its excluded build folder')
     except A.PreflightBlocker as exc:
         blockers.append(str(exc))
-    manifest['preparation_blockers'] = [b for b in blockers if b not in profile_blockers]
-    # Baseline simulators never outlive prepare: an abandoned prepared run leaves nothing behind. A live
-    # run creates fresh ones just before each arm's clock starts.
-    manifest['baseline_simulators'] = release_simulators(out, manifest)
-    manifest['simulators'] = {}
-    save_manifest(out, manifest)
+    except KeyboardInterrupt:
+        interrupted = True
+        blockers.append(f'preparation interrupted during the {arm} baseline; partial logs and both checkouts are retained')
+        manifest['state'] = 'preparation_interrupted'
+        manifest['preparation_interruption'] = {'utc': now(), 'arm': arm, 'exit_code': 130,
+                                              'log': str(out / 'arms' / arm / 'baseline.check.log')}
+        (out / 'preparation-interruption.json').write_text(json.dumps(manifest['preparation_interruption'], indent=2), encoding='utf-8')
+    finally:
+        manifest['preparation_blockers'] = [b for b in blockers if b not in profile_blockers]
+        # Always release owned baseline devices, including when the check was interrupted.
+        # Blocked deletions keep their ownership records and partial evidence stays in place.
+        manifest['baseline_simulators'] = release_simulators(out, manifest)
+        if manifest['simulators']:
+            blockers.append('baseline simulator cleanup is blocked; recorded ownership is retained for recovery')
+            manifest['preparation_blockers'].append(blockers[-1])
+        save_manifest(out, manifest)
     (out / 'DESKTOP.md').write_text(DESKTOP_STEPS + '\nCodex fixture: ' + arms['codex']['repo'] + '\n', encoding='utf-8')
-    print(json.dumps({'out': str(out), 'state': 'prepared', 'fixture': fixture.name, 'models': manifest['models'], 'budget': manifest['budget'], 'arms': arms, 'profile_blockers': profile_blockers, 'preparation_blockers': manifest['preparation_blockers']}, indent=2))
+    print(json.dumps({'out': str(out), 'state': manifest['state'], 'fixture': fixture.name, 'models': manifest['models'], 'budget': manifest['budget'], 'arms': arms, 'profile_blockers': profile_blockers, 'preparation_blockers': manifest['preparation_blockers']}, indent=2))
+    if interrupted:
+        return 130
     if blockers:
         print('PREFLIGHT BLOCKERS (nothing launched): ' + '; '.join(blockers), file=sys.stderr)
         return 2
@@ -447,12 +488,14 @@ def launch(argv, cwd, evidence, timeout, name, env=None):
         proc = subprocess.Popen(argv, cwd=str(cwd), env=env, stdout=out_log, stderr=err_log, start_new_session=True)
         pgid = os.getpgid(proc.pid)
         timed_out = False
+        interrupted = False
         children_before_kill = []
         lingering = False
         try:
             proc.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
+        except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
+            timed_out = isinstance(exc, subprocess.TimeoutExpired)
+            interrupted = isinstance(exc, KeyboardInterrupt)
             children_before_kill = descendants(proc.pid)
             for kid in children_before_kill:
                 try:
@@ -486,7 +529,11 @@ def launch(argv, cwd, evidence, timeout, name, env=None):
             pass
     group_alive = signal_group(pgid, 0)
     record = {'argv': argv, 'cwd': str(cwd), 'start_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start)), 'seconds': round(time.time() - start, 3), 'exit_code': code, 'timed_out': timed_out, 'deadline_seconds': timeout, 'pgid': pgid, 'children_before_kill': children_before_kill, 'lingering_group_terminated': lingering, 'process_group_still_alive': group_alive, 'surviving_children': survivors, 'stdout_log': str(stdout_path), 'stderr_log': str(stderr_path), 'deadline_kind': 'deterministic external wait/kill of the owned process tree', 'attempts': 1, 'outer_retry': False}
+    if interrupted:
+        record['interrupted'] = True
     (evidence / f'{name}.execution.json').write_text(json.dumps(record, indent=2), encoding='utf-8')
+    if interrupted:
+        raise KeyboardInterrupt()
     return record
 
 parse_check = FX.parse_unittest
@@ -506,11 +553,18 @@ def run_check(repo, evidence, name, timeout, manifest, arm):
     started = time.monotonic()
     with log_path.open('w', encoding='utf-8') as log:
         try:
-            proc = subprocess.run(argv, cwd=str(repo), stdout=log, stderr=subprocess.STDOUT, timeout=max(int(timeout), 1), check=False)
-            code = proc.returncode
-        except subprocess.TimeoutExpired as exc:
-            log.write(f'\ndeadline expired during the independent check: {exc}\n')
-            code = -1
+            proc = subprocess.Popen(argv, cwd=str(repo), stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                code = proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired as exc:
+                log.write(f'\ndeadline expired during the independent check: {exc}\n')
+                code = -1
+            finally:
+                # A check script may spawn compilers or test runners. Stop its whole owned
+                # group before parsing results or allowing the checkout to be archived.
+                if signal_group(proc.pid, 0):
+                    terminate_group(proc.pid)
+                proc.wait()
         except OSError as exc:
             log.write(f'could not start the independent check: {exc}\n')
             code = 127
@@ -598,12 +652,16 @@ def archive_rollouts(catalog, ids, evidence):
     target.mkdir(parents=True, exist_ok=True)
     hashes = {}
     for sid in ids:
-        source = Path((catalog.get(sid) or {}).get('path') or '/dev/null/missing')
-        if not source.exists():
-            continue
-        dest = target / f'{sid}.jsonl'
-        shutil.copy2(source, dest)
-        hashes[f'{sid}.jsonl'] = A.sha256_file(dest)
+        record = catalog.get(sid) or {}
+        paths = list(dict.fromkeys([record.get('path')] + list(record.get('rollout_paths') or [])))
+        for index, raw in enumerate(path for path in paths if path):
+            source = Path(raw)
+            if not source.exists():
+                continue
+            name = f'{sid}.jsonl' if index == 0 else f'{sid}-duplicate-{index}.jsonl'
+            dest = target / name
+            shutil.copy2(source, dest)
+            hashes[name] = A.sha256_file(dest)
     (evidence / 'rollouts-sha256.json').write_text(json.dumps(hashes, indent=2), encoding='utf-8')
     return {'archived': sorted(hashes), 'sha256': hashes, 'dir': str(target)}
 
@@ -614,9 +672,13 @@ def codex_expectations(manifest):
 
 def window_seconds(window):
     try:
-        fmt = '%Y-%m-%dT%H:%M:%S'
-        return round(time.mktime(time.strptime(window['last_event'][:19], fmt)) - time.mktime(time.strptime(window['first_event'][:19], fmt)), 1)
-    except (KeyError, TypeError, ValueError):
+        first = datetime.datetime.fromisoformat(window['first_event'].replace('Z', '+00:00'))
+        last = datetime.datetime.fromisoformat(window['last_event'].replace('Z', '+00:00'))
+        if first.utcoffset() is None or last.utcoffset() is None:
+            return None
+        seconds = (last - first).total_seconds()
+        return round(seconds, 1) if seconds >= 0 else None
+    except (AttributeError, KeyError, TypeError, ValueError):
         return None
 
 def account_codex_evidence(manifest, evidence, root_id, client, codex_home):
@@ -675,6 +737,11 @@ def verify_retained_evidence(evidence):
             problems.append('the retained evidence seal is unreadable, so nothing can be re-verified offline')
     else:
         problems.append('the retained evidence was never sealed during execution, so nothing can be re-verified offline')
+    required = {'result.json', 'accounting.json', 'complete.patch', 'final.check.log'}
+    required.update(name for name in SEALED_EVIDENCE if (evidence / name).exists())
+    required.update('rollouts/' + path.name for path in (evidence / 'rollouts').glob('*.jsonl'))
+    for name in sorted(required - set(entries)):
+        problems.append(f'retained evidence {name} has no execution-time sealed digest')
     for (name, expected) in sorted(entries.items()):
         path = evidence / name
         if not path.exists():
@@ -896,10 +963,11 @@ def compare_runs(outs):
         for field in keys[base]:
             if keys[base][field] != keys[label][field]:
                 blockers.append(f'{label} differs from {base} in frozen field {field!r}: incomparable round')
-    differences = {'local_models': {label: m['models']['local'] for (label, m) in manifests.items()}, 'hardware': {label: {k: m['machine'].get(k) for k in ('label', 'machine', 'macos', 'physical_memory_bytes')} for (label, m) in manifests.items()}, 'measurement_kind': {label: m['measurement_kind'] for (label, m) in manifests.items()}}
+    differences = {'local_models': {label: m['models']['local'] for (label, m) in manifests.items()}, 'hardware': {label: {k: m['machine'].get(k) for k in ('label', 'machine', 'macos', 'physical_memory_bytes', 'cpu_count', 'hardware')} for (label, m) in manifests.items()}, 'measurement_kind': {label: m['measurement_kind'] for (label, m) in manifests.items()}}
     return (blockers, differences)
 
-def ratio_block(arms, threshold=0.3):
+def ratio_block(arms, threshold=None):
+    threshold = TARGETS['cloud_vs_codex'] if threshold is None else threshold
     (codex, hybrid) = (arms.get('codex'), arms.get('opencode'))
     if not codex or not hybrid:
         return {'status': 'undefined', 'reason': 'both arms must be present', 'threshold': threshold}
@@ -940,23 +1008,32 @@ def seat_metrics(arms):
         seats[arm] = accounting.get('seats') if verified else None
         usable[arm] = bool(seats[arm]) and bool(accounting.get('usage_complete')) and not (seats[arm].get('unknown') or {}).get('total')
     hybrid, codex = seats.get('opencode'), seats.get('codex')
-    share = {'value': None, 'exact': False}
+    share = {'value': None, 'exact': False, 'lower_bound': None, 'upper_bound': None,
+             'value_basis': 'attributed requests only; unknown maintenance excluded'}
     if hybrid and usable.get('opencode'):
         total = hybrid['planner']['total'] + hybrid['worker']['total']
         maintenance = (arms['opencode'].get('accounting') or {}).get('unknown_maintenance_total')
-        share = {'value': hybrid['planner']['total'] / total if total else None, 'exact': maintenance == 0}
+        share.update({'value': hybrid['planner']['total'] / total if total else None, 'exact': maintenance == 0})
+        if isinstance(maintenance, (int, float)) and maintenance >= 0 and total + maintenance > 0:
+            share.update({'lower_bound': hybrid['planner']['total'] / (total + maintenance),
+                          'upper_bound': (hybrid['planner']['total'] + maintenance) / (total + maintenance)})
     both_accepted = all(bool((arms.get(arm) or {}).get('accepted')) for arm in ('codex', 'opencode'))
-    ratio = {'value': None, 'hybrid_cloud': None, 'codex_cloud': None}
+    ratio = {'value': None, 'hybrid_cloud': None, 'codex_cloud': None, 'lower_bound': None, 'upper_bound': None,
+             'value_basis': 'attributed requests only; unknown maintenance excluded'}
     if hybrid and codex and usable.get('opencode') and usable.get('codex'):
         codex_cloud = codex['planner']['total'] + codex['worker']['total']
-        ratio = {'value': hybrid['planner']['total'] / codex_cloud if codex_cloud else None,
-                 'hybrid_cloud': hybrid['planner']['total'], 'codex_cloud': codex_cloud}
+        ratio.update({'value': hybrid['planner']['total'] / codex_cloud if codex_cloud else None,
+                      'hybrid_cloud': hybrid['planner']['total'], 'codex_cloud': codex_cloud})
+        maintenance = (arms['opencode'].get('accounting') or {}).get('unknown_maintenance_total')
+        if codex_cloud and isinstance(maintenance, (int, float)) and maintenance >= 0:
+            ratio.update({'lower_bound': hybrid['planner']['total'] / codex_cloud,
+                          'upper_bound': (hybrid['planner']['total'] + maintenance) / codex_cloud})
     targets = {'both_arms_accepted': both_accepted,
-               'hybrid_cloud_at_most_half_of_codex': bool(both_accepted and ratio['value'] is not None and ratio['value'] <= TARGETS['cloud_vs_codex']),
-               'hybrid_cloud_share_at_most_0.35': bool(both_accepted and share['value'] is not None and share['value'] <= TARGETS['share']),
-               'stretch_cloud_share_at_most_0.20': bool(both_accepted and share['value'] is not None and share['value'] <= TARGETS['stretch_share'])}
+               'hybrid_cloud_at_most_half_of_codex': bool(both_accepted and ratio['upper_bound'] is not None and ratio['upper_bound'] <= TARGETS['cloud_vs_codex']),
+               'hybrid_cloud_share_at_most_0.35': bool(both_accepted and share['upper_bound'] is not None and share['upper_bound'] <= TARGETS['share']),
+               'stretch_cloud_share_at_most_0.20': bool(both_accepted and share['upper_bound'] is not None and share['upper_bound'] <= TARGETS['stretch_share'])}
     return {'seats': seats, 'hybrid_cloud_share': share, 'cloud_vs_codex': ratio, 'targets': targets,
-            'note': 'targets count only when both arms are accepted; figures are withheld while usage is incomplete or unattributed'}
+            'note': 'targets require both arms accepted and the entire uncertainty interval within threshold; value is an attributed-only estimate; figures are withheld while usage is incomplete or unattributed'}
 
 def archive_and_cleanup(out, manifest, arm):
     repo = Path(manifest['arms'][arm]['repo'])
@@ -996,12 +1073,8 @@ def archive_and_cleanup(out, manifest, arm):
     try:
         listing = []
         symlinks = []
-        excluded = [pattern.rstrip('/') for pattern in manifest.get('excluded') or []]
         with tarfile.open(tar_path, 'w:gz') as tar:
             for path in sorted(repo.rglob('*')):
-                relative = path.relative_to(repo).as_posix()
-                if any(relative == name or relative.startswith(name + '/') for name in excluded):
-                    continue
                 if path.is_symlink():
                     symlinks.append({'name': f'{arm}/' + str(path.relative_to(repo)), 'target': str((path.parent / os.readlink(path)).resolve())})
                     tar.add(path, arcname=f'{arm}/' + str(path.relative_to(repo)))
@@ -1157,6 +1230,8 @@ def build_report(out, manifest):
 def render_markdown(report):
     machine = report['machine']
     lines = [f"# Benchmark report `{report['out']}`", '', f"* protocol `{report['protocol']}`, generated {report['generated_utc']}, measurement kind `{report['measurement_kind']}`", f"* machine `{machine['label']}` — {machine['platform']}, python {machine['python']}, git {machine['git']}, codex {machine['codex']}, opencode {machine['opencode']}, RAM {machine['physical_memory_bytes']} bytes", f"* models `{json.dumps(report['models'])}`", f"* budget `{json.dumps(report['budget'])}` per arm (1 initial + 1 repair)", f"* accepted arms: {', '.join(report['accepted_arms']) or 'none'}", '']
+    if machine.get('hardware'):
+        lines += [f"* hardware `{json.dumps(machine['hardware'])}`", '']
     header = ('arm', 'client', 'accepted', 'cloud', 'cloud>=lower', 'local', 'unknown maint', 'seconds', 'tests', 'exit/timeout', 'failed gates')
     lines += ['| ' + ' | '.join(header) + ' |', '|' + '---|' * len(header)]
     for (arm, result) in sorted(report['arms'].items()):
@@ -1172,8 +1247,8 @@ def render_markdown(report):
                 lines.append(f"| {arm} | {seat} | {usage.get('model') or 'unattributed'} | " + ' | '.join(str(usage.get(key)) for key in ('uncached_input', 'cached_input', 'output', 'reasoning', 'total')) + ' |')
     share, ratio = metrics.get('hybrid_cloud_share') or {}, metrics.get('cloud_vs_codex') or {}
     fmt = lambda value: 'n/a' if value is None else f'{value:.3f}'
-    lines += ['', f"* Hybrid cloud share (Sol / (Sol + local)): {fmt(share.get('value'))}{'' if share.get('exact') else ' (lower bound: unattributed maintenance excluded)' if share.get('value') is not None else ''}",
-              f"* Hybrid cloud / Codex cloud (Sol + Luna): {fmt(ratio.get('value'))}", '', '## Targets', '']
+    lines += ['', f"* Hybrid cloud share (attributed requests): {fmt(share.get('value'))}; full interval [{fmt(share.get('lower_bound'))}, {fmt(share.get('upper_bound'))}]",
+              f"* Hybrid cloud / Codex cloud (attributed requests): {fmt(ratio.get('value'))}; full interval [{fmt(ratio.get('lower_bound'))}, {fmt(ratio.get('upper_bound'))}]", '', '## Targets', '']
     lines += [f"* {name}: {'PASS' if ok else 'FAIL'}" for (name, ok) in (metrics.get('targets') or {}).items()]
     lines += ['', '## Blockers', '']
     for (arm, result) in sorted(report['arms'].items()):
@@ -1193,11 +1268,11 @@ def read_cleanup_receipts(out):
 def retained_cleanup_receipts(out):
     return [dict(entry, retained_receipt=True) for entry in read_cleanup_receipts(out)]
 
-def closeout(out, manifest):
+def closeout(out, manifest, arms=None):
     """Execution closeout only: archive, verify, then remove the owned checkouts. A report never deletes."""
     previous = {entry.get('arm'): entry for entry in read_cleanup_receipts(out) if entry.get('status') == 'archived_and_removed'}
     receipts = []
-    for arm in manifest['completed_arms']:
+    for arm in manifest['completed_arms'] if arms is None else arms:
         earlier = previous.get(arm)
         if earlier and not Path(manifest['arms'][arm]['repo']).exists():
             receipts.append(dict(earlier, receipt='retained from the first verified closeout'))
@@ -1209,7 +1284,6 @@ def closeout(out, manifest):
     (out / 'archive-verification.json').write_text(json.dumps(receipts, indent=2), encoding='utf-8')
     if manifest.get('simulators'):
         manifest['simulators_released'] = release_simulators(out, manifest)
-        manifest['simulators'] = {}
         save_manifest(out, manifest)
     return receipts
 
@@ -1245,6 +1319,13 @@ def launch_input_blockers(out, manifest, launch_arms):
             head = None
         if head != record.get('base'):
             blockers.append(f'the {arm} checkout HEAD is {head!r} instead of the frozen fixture base {record.get("base")!r}')
+        try:
+            status = git(repo, 'status', '--porcelain', '--untracked-files=all')
+        except A.PreflightBlocker as exc:
+            blockers.append(f'the {arm} checkout status cannot be verified: {exc}')
+        else:
+            if status:
+                blockers.append(f'the {arm} checkout is not the pristine frozen fixture input (tracked or untracked changes); refusing to launch')
     config = manifest.get('native_config') or {}
     try:
         current = A.config_snapshot(Path(config.get('path')), os.environ)
@@ -1347,25 +1428,44 @@ def cmd_run(args):
         print('PREFLIGHT BLOCKERS (nothing launched): ' + '; '.join(blockers), file=sys.stderr)
         return 2
     results = {}
+    interrupted = False
     manifest['live_started'] = now()
     manifest['live_attempt_evidence'] = {arm: {'attempted': True, 'attempts': 1, 'cost_state': 'unknown'} for arm in ('codex', 'opencode')}
     save_manifest(out, manifest)
     for arm in ('codex', 'opencode'):
         try:
+            blockers = preflight(manifest, out, launch_arms=(arm,))
+            if blockers:
+                raise A.PreflightBlocker('; '.join(blockers))
             start_arm_simulator(out, manifest, arm)
             result = run_codex_arm(out, manifest) if arm == 'codex' else run_opencode_arm(out, manifest)
+        except KeyboardInterrupt:
+            interrupted = True
+            receipt = out / 'arms' / arm / 'arm.execution.json'
+            try:
+                execution = json.loads(receipt.read_text(encoding='utf-8')) if receipt.exists() else None
+            except (OSError, ValueError):
+                execution = None
+            result = record_arm_failure(out, manifest, arm, 'codex-cli' if arm == 'codex' else 'opencode-cli',
+                                        [f'the {arm} arm was interrupted; incomplete work is rejected and its spend remains unknown'],
+                                        execution, stage='interrupted')
         except Exception as exc:
             result = record_arm_failure(out, manifest, arm, 'codex-cli' if arm == 'codex' else 'opencode-cli', [f'the {arm} arm failed outside its own evidence handling: {type(exc).__name__}: {exc}; the attempt is retained with unknown cost'], None, stage='crash')
         results[arm] = result
         manifest['live_attempt_evidence'][arm] = {'attempted': True, 'attempts': 1, 'accepted': bool(result.get('accepted')), 'cost_state': (result.get('accounting') or {}).get('cost_state') or ('recorded' if (result.get('accounting') or {}).get('cloud_total') is not None or (result.get('accounting') or {}).get('known_lower_bound') is not None else 'unknown')}
         manifest['completed_arms'] = sorted(set(manifest['completed_arms']) | {arm})
         save_manifest(out, manifest)
+        if interrupted:
+            manifest['state'] = 'interrupted'
+            for pending in set(manifest['arms']) - set(results):
+                manifest['live_attempt_evidence'][pending] = {'attempted': False, 'attempts': 0, 'cost_state': 'not_attempted'}
+            break
     manifest['config_integrity_final'] = config_integrity(manifest)
     save_manifest(out, manifest)
-    closeout(out, manifest)
+    closeout(out, manifest, arms=tuple(manifest['arms']) if interrupted else None)
     report = write_report(out, manifest)
     print(json.dumps({'arms': {arm: {key: results[arm].get(key) for key in ('accepted', 'blockers')} for arm in results}, 'report': str(out / 'REPORT.md'), 'ratio': report['metrics']['ratio'], 'cleanup': report['cleanup']}, indent=2))
-    return 0
+    return 130 if interrupted else 0
 
 def cmd_finish(args):
     out = resolve_out(args.out, fresh=False)
@@ -1419,7 +1519,27 @@ def cmd_finish(args):
     manifest['completed_arms'] = sorted(set(manifest['completed_arms']) | {'codex'})
     manifest['measurement_kind'] = 'codex-app-imported+opencode-cli'
     save_manifest(out, manifest)
-    opencode = run_opencode_arm(out, manifest)
+    interrupted = False
+    try:
+        blockers = preflight(manifest, out, launch_arms=('opencode',))
+        if blockers:
+            raise A.PreflightBlocker('; '.join(blockers))
+        opencode = run_opencode_arm(out, manifest)
+    except KeyboardInterrupt:
+        interrupted = True
+        receipt = out / 'arms' / 'opencode' / 'arm.execution.json'
+        try:
+            execution = json.loads(receipt.read_text(encoding='utf-8')) if receipt.exists() else None
+        except (OSError, ValueError):
+            execution = None
+        opencode = record_arm_failure(out, manifest, 'opencode', 'opencode-cli',
+                                      ['the Hybrid arm was interrupted after App import; incomplete work is rejected and its spend remains unknown'],
+                                      execution, stage='interrupted')
+        manifest['state'] = 'interrupted'
+    except Exception as exc:
+        opencode = record_arm_failure(out, manifest, 'opencode', 'opencode-cli',
+                                      [f'the Hybrid arm failed after App import: {type(exc).__name__}: {exc}; the attempt is retained with unknown cost'],
+                                      stage='crash')
     manifest['completed_arms'] = sorted(set(manifest['completed_arms']) | {'opencode'})
     save_manifest(out, manifest)
     opencode_summary = {key: opencode.get(key) for key in ('accepted', 'blockers')}
@@ -1428,7 +1548,7 @@ def cmd_finish(args):
     closeout(out, manifest)
     write_report(out, manifest)
     print(json.dumps({'codex_app': {key: result.get(key) for key in ('accepted', 'blockers', 'desktop_gate')}, 'opencode': opencode_summary}, indent=2))
-    return 0
+    return 130 if interrupted else 0
 
 def cmd_report(args):
     out = resolve_out(args.out, fresh=False)

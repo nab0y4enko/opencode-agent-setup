@@ -112,17 +112,22 @@ def add_usage(target, uncached_input, cached_input, output, reasoning, total):
 
 
 # ------------------------------------------------------------------ verdict text
-_FENCE = re.compile(r'^\s*(```|~~~)')
+_FENCE = re.compile(r'^\s*(`{3,}|~{3,})(.*)$')
 _VERDICT = re.compile(r'^VERDICT:\s*(PASS|FAIL|CHANGES_REQUIRED)\b[ \t]*(.*)$', re.I)
 _SHA = re.compile(r'^([0-9a-f]{64})$')
 
 
 def find_verdicts(text):
     """Verdict lines tagged plain/quoted/fenced so decoration cannot forge one."""
-    found, fenced = [], False
+    found, fenced = [], None
     for raw in (text or '').splitlines():
-        if _FENCE.match(raw):
-            fenced = not fenced
+        fence = _FENCE.match(raw)
+        if fence:
+            marker, suffix = fence.groups()
+            if fenced is None:
+                fenced = (marker[0], len(marker))
+            elif marker[0] == fenced[0] and len(marker) >= fenced[1] and not suffix.strip():
+                fenced = None
             continue
         line = raw.strip()
         bare = line.replace('*', '').strip()
@@ -283,7 +288,7 @@ def scan_codex_rollout(path):
               'efforts': [], 'usage': None, 'usage_updates': 0, 'tool_calls': 0, 'edit_calls': 0,
               'assistant_texts': [], 'first_event': None, 'last_event': None, 'malformed_lines': 0,
               'completion': 'unknown', 'completion_markers': [], 'spawn_calls': 0, 'repair_calls': 0,
-              'spawned_ids': []}
+              'spawned_ids': [], 'missing_context_fields': [], 'invalid_usage_updates': 0}
     try:
         handle = Path(path).open('r', encoding='utf-8', errors='replace')
     except OSError:
@@ -314,14 +319,20 @@ def scan_codex_rollout(path):
                 if isinstance(spawn, dict):
                     record['parent_id'] = spawn.get('parent_thread_id')
             if event.get('type') == 'turn_context' or ('model' in payload and 'effort' in payload):
+                for field, value in (('model', payload.get('model')),
+                                     ('effort', payload.get('effort') or payload.get('reasoning_effort'))):
+                    if not value:
+                        record['missing_context_fields'].append(field)
                 if payload.get('model'):
                     record['models'].append(payload['model'])
                     record['efforts'].append(payload.get('effort') or payload.get('reasoning_effort'))
             info = payload.get('info')
-            if payload.get('type') == 'token_count' and isinstance(info, dict) \
-                    and isinstance(info.get('total_token_usage'), dict):
-                record['usage'] = info['total_token_usage']
-                record['usage_updates'] += 1
+            if payload.get('type') == 'token_count' and isinstance(info, dict) and 'total_token_usage' in info:
+                if isinstance(info['total_token_usage'], dict):
+                    record['usage'] = info['total_token_usage']
+                    record['usage_updates'] += 1
+                else:
+                    record['invalid_usage_updates'] += 1
             ptype, name = str(payload.get('type') or ''), str(payload.get('name') or '').lower()
             if ptype in CODEX_TOOL_CALL_TYPES:
                 record['tool_calls'] += 1
@@ -352,7 +363,18 @@ def scan_codex_rollouts(sessions_dir):
     for path in sorted(Path(sessions_dir).glob('**/*.jsonl')):
         record = scan_codex_rollout(path)
         if record:
-            catalog[record['session_id']] = record
+            sid = record['session_id']
+            if sid in catalog:
+                # Keep the first source's known usage once, retaining every source for recovery.
+                # Even byte-identical copies are ambiguous session evidence and are reported.
+                catalog[sid]['rollout_paths'].append(str(path))
+                catalog[sid]['duplicate_rollout_paths'] = catalog[sid]['rollout_paths'][1:]
+                if record['parent_id'] not in catalog[sid]['parent_ids']:
+                    catalog[sid]['parent_ids'].append(record['parent_id'])
+            else:
+                record['rollout_paths'] = [str(path)]
+                record['parent_ids'] = [record['parent_id']]
+                catalog[sid] = record
     return catalog
 
 
@@ -362,7 +384,8 @@ def codex_tree(catalog, root_thread_id):
         raise PreflightBlocker(f'no Codex rollout found for root thread {root_thread_id}')
     ids = {root_thread_id}
     while True:
-        grown = ids | {sid for sid, rec in catalog.items() if rec.get('parent_id') in ids and sid not in ids}
+        grown = ids | {sid for sid, rec in catalog.items() if sid not in ids
+                       and any(parent in ids for parent in rec.get('parent_ids', [rec.get('parent_id')]))}
         if grown == ids:
             break
         ids = grown
@@ -406,7 +429,13 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
     if duplicate_ids:
         blockers.append(f'session id(s) {", ".join(duplicate_ids)} listed more than once; every rollout '
                         'is counted once, never twice')
-    malformed_rollouts = []
+    required_ids = set(codex_tree(catalog, root_thread_id)) if root_thread_id in catalog else {root_thread_id}
+    omitted_ids = sorted(required_ids - set(ids))
+    if omitted_ids:
+        unknown_sessions.extend(omitted_ids)
+        blockers.append(f'Codex root or descendant session(s) {", ".join(omitted_ids)} omitted from '
+                        'accounting; the arm usage and routing coverage are incomplete')
+    malformed_rollouts, duplicate_rollout_sessions = [], []
     descendants = max(len(ids) - 1, 0)
     root_calls, root_edit_calls, children, expected_children = None, 0, 0, 0
     worker_turns, over_turned = 0, []
@@ -421,6 +450,11 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
             blockers.append(f'session {sid} has no rollout file; usage is unknown, never zero, and the '
                             'required child is unaccounted')
             continue
+        if rec.get('duplicate_rollout_paths'):
+            duplicate_rollout_sessions.append(sid)
+            unknown_sessions.append(sid)
+            blockers.append(f'session {sid} has duplicate rollout sources; every source must be '
+                            'preserved and resolved before exact accounting or acceptance')
         reported = rec.get('malformed_lines')
         if (reported is not None and as_counter(reported) is None) or as_int(reported) > 0:
             malformed_rollouts.append(f'{sid}:{reported}')
@@ -430,11 +464,11 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
         role = 'root' if sid == root_thread_id else 'child'
         expected = expected_root_model if role == 'root' else expected_child_model
         models, efforts = list(rec['models']), list(rec['efforts'])
-        if not models:
+        if not models or 'model' in rec.get('missing_context_fields', []):
             unexpected_models.append(f'{sid}:{role}:missing-model')
             blockers.append(f'session {sid} ({role}) recorded no model; required {expected!r} routing is '
                             'unverified, never assumed')
-        if not efforts:
+        if not efforts or 'effort' in rec.get('missing_context_fields', []):
             effort_mismatch.append(f'{sid}:{role}:missing-effort')
             blockers.append(f'session {sid} ({role}) recorded no reasoning effort; required '
                             f'{expected_effort!r} effort is unverified, never assumed')
@@ -448,6 +482,10 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
             incomplete_sessions.append(f'{sid}:{role}:{completion}')
             blockers.append(f'session {sid} ({role}) has no task_complete marker (state {completion!r}); '
                             'an active, aborted or unknown turn is never an accepted arm')
+        if rec.get('invalid_usage_updates'):
+            unknown_sessions.append(sid)
+            blockers.append(f'session {sid} has malformed cumulative usage update(s); prior usage is '
+                            'only a known lower bound, never an exact final total')
         usage, tokens, status = rec.get('usage'), None, 'unknown'
         if usage is None:
             unknown_sessions.append(sid)
@@ -478,9 +516,9 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
                 for key in totals:
                     totals[key] += tokens[key]
                 # Seats follow the model the session really ran, never its role.
-                seat = ('planner' if models == [expected_root_model] and role == 'root'
-                        else 'worker' if models == [expected_child_model] and role == 'child' else 'unknown')
-                parts = (tokens['uncached_input'], tokens['cached_input'], tokens['raw_output'],
+                seat = ('planner' if models == [expected_root_model]
+                        else 'worker' if models == [expected_child_model] else 'unknown')
+                parts = (tokens['uncached_input'], tokens['cached_input'], tokens['non_reasoning_output'],
                          tokens['reasoning_output'], tokens['cloud_total'])
                 add_usage(seats[seat], *parts)
                 model_key = models[0] if len(models) == 1 else 'unknown'
@@ -542,7 +580,7 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
         root_calls['spawn_agent'] <= max_workers and root_calls['followup'] <= max(root_calls['spawn_agent'], 1)
         and root_calls['spawn_agent'] <= descendants))
     routing_ok = (root_thread_id in catalog and not unexpected_models and not missing_rollouts
-                  and not duplicate_ids and not effort_mismatch and not incomplete_sessions
+                  and not duplicate_ids and not omitted_ids and not duplicate_rollout_sessions and not effort_mismatch and not incomplete_sessions
                   and not root_edit_calls and dispatch_ok and 1 <= children <= max_workers
                   and expected_children == children)
     usage_complete = not (unknown_sessions or attribution_bad or missing_rollouts or malformed_rollouts)
@@ -558,6 +596,7 @@ def account_codex(catalog, ids, *, root_thread_id, expected_root_model, expected
             'unexpected_models': unexpected_models, 'routing_ok': routing_ok, 'blockers': blockers,
             'missing_rollouts': missing_rollouts, 'effort_mismatch': effort_mismatch,
             'malformed_rollouts': malformed_rollouts, 'duplicate_session_ids': duplicate_ids,
+            'duplicate_rollout_sessions': duplicate_rollout_sessions,
             'incomplete_sessions': incomplete_sessions, 'root_dispatch_calls': root_calls,
             'tool_calls': sum(s['tool_calls'] for s in sessions), 'model_calls': sum(len(s['models']) for s in sessions),
             'counting': ('final cumulative input+output counted once per native session; cached input is a '
@@ -806,7 +845,11 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
                              'time_idle': session.get('time_idle'), 'idle_outcome': session.get('idle_outcome'),
                              'incomplete_evidence': evidence})
     root_ids = [r for r in root_session_ids if r]
-    roots = [s for s in sessions_out if s['id'] in root_ids] or [s for s in sessions_out if not s['parent_id']]
+    roots = ([s for s in sessions_out if s['id'] in root_ids] if root_ids
+             else [s for s in sessions_out if not s['parent_id']])
+    for sid in root_ids:
+        if sid not in seen_sessions:
+            blockers.append(f'recorded root OpenCode session {sid} is missing from native evidence')
     if not roots:
         blockers.append('no root OpenCode session was found for the frozen repo directory or recorded ids')
     for root in roots:
@@ -843,6 +886,20 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
                         f'Hybrid root, one {expected_local_agent} worker and one {expected_review_agent} review')
     cloud_expected = f'{expected_cloud_provider}/{expected_cloud_model}'
     by_id = {s['id']: s for s in sessions_out}
+    selected_roots = {root['id'] for root in roots}
+    for session in sessions_out:
+        sid = session['id']
+        if sid in selected_roots:
+            if session['parent_id']:
+                blockers.append(f'recorded root session {sid} has a parent; a descendant cannot be a root')
+            continue
+        seen, parent = {sid}, session['parent_id']
+        while parent in by_id and parent not in selected_roots and parent not in seen:
+            seen.add(parent)
+            parent = by_id[parent]['parent_id']
+        if parent not in selected_roots:
+            blockers.append(f'native session {sid} is not a descendant of a recorded root; '
+                            'unrelated or cyclic session evidence cannot satisfy arm roles')
     required_roles = [('root Hybrid', [r['id'] for r in roots], cloud_expected, True),
                       (f'{expected_local_agent} worker', local_sessions, expected_local_model, False),
                       (f'{expected_explore_agent} helper', explore_sessions, expected_local_model, False),

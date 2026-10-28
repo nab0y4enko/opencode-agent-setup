@@ -99,6 +99,11 @@ class CodexUsage(unittest.TestCase):
         self.assertEqual(malformed['invalid_fields'], ['cache_write_input_tokens'])
         self.assertFalse(malformed['complete'])
 
+    def test_every_codex_seat_and_model_has_disjoint_parts(self):
+        result = codex()
+        for row in list(result['seats'].values()) + list(result['by_model'].values()):
+            self.assertEqual(sum(row[key] for key in A.USAGE_PARTS), row['total'])
+
 
 class CodexFailClosed(unittest.TestCase):
     def test_worker_turns_beyond_one_repair_fail_closed_whatever_tool_dispatched_them(self):
@@ -127,6 +132,7 @@ class CodexFailClosed(unittest.TestCase):
                 ids.append(sid)
             del catalog[H.CHILD]
             catalog[H.ROOT]['spawn_calls'] = count
+            catalog[H.ROOT]['spawned_ids'] = ids[1:]
             return A.account_codex(catalog, ids, **H.CODEX_KW)
         four = children(4)
         self.assertTrue(four['routing_ok'], four['blockers'])
@@ -143,9 +149,19 @@ class CodexFailClosed(unittest.TestCase):
         result = codex()
         planner, worker = result['seats']['planner'], result['seats']['worker']
         self.assertEqual((planner['model'], worker['model']), (H.SOL, H.LUNA))
-        self.assertEqual((planner['uncached_input'], planner['cached_input'], planner['output'], planner['reasoning']), (600, 400, 300, 60))
+        self.assertEqual((planner['uncached_input'], planner['cached_input'], planner['output'], planner['reasoning']), (600, 400, 240, 60))
         self.assertEqual(planner['total'] + worker['total'] + result['seats']['unknown']['total'], result['cloud_total'])
         self.assertEqual(result['by_model'][H.LUNA]['total'], worker['total'])
+
+    def test_wrong_role_still_accounts_to_the_seat_of_the_recorded_model(self):
+        catalog = H.codex_catalog()
+        catalog[H.ROOT]['models'] = [H.LUNA]
+        catalog[H.CHILD]['models'] = [H.SOL]
+        result = A.account_codex(catalog, [H.ROOT, H.CHILD], **H.CODEX_KW)
+        self.assertFalse(result['routing_ok'])
+        self.assertEqual(result['seats']['planner']['total'], 400)
+        self.assertEqual(result['seats']['worker']['total'], 1300)
+        self.assertEqual(result['seats']['unknown']['total'], 0)
 
     def test_missing_child_model_is_never_assumed(self):
         result = codex(child_models=[])
@@ -194,6 +210,14 @@ class CodexFailClosed(unittest.TestCase):
         self.assertFalse(result['routing_ok'])
         self.assertTrue(blockers_have(result, 'counted once, never twice'))
 
+    def test_omitted_root_or_known_descendant_withholds_exact_arm_total(self):
+        for ids in ([H.CHILD], [H.ROOT]):
+            result = A.account_codex(H.codex_catalog(), ids, **H.CODEX_KW)
+            self.assertFalse(result['routing_ok'], ids)
+            self.assertFalse(result['usage_complete'], ids)
+            self.assertIsNone(result['cloud_total'], ids)
+            self.assertTrue(blockers_have(result, 'omitted'), ids)
+
     def test_missing_child_usage_keeps_only_a_lower_bound(self):
         result = codex(child_usage=None)
         self.assertFalse(result['usage_complete'])
@@ -234,6 +258,31 @@ class CodexRolloutFiles(unittest.TestCase):
                 odd_path = Path(raw) / f'odd-{type(odd).__name__}.jsonl'
                 H.write_rollout(odd_path, 'odd', source=odd)
                 self.assertEqual(A.scan_codex_rollout(odd_path)['session_id'], 'odd', odd)
+
+    def test_missing_effort_in_a_later_context_cannot_reuse_earlier_effort(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = H.write_rollout(Path(raw) / 'root.jsonl', H.ROOT, total=H.usage(100, 0, 20, 0))
+            with path.open('a') as handle:
+                handle.write(json.dumps({'type': 'turn_context', 'payload': {'model': H.SOL}}) + '\n')
+            catalog = H.codex_catalog()
+            catalog[H.ROOT] = A.scan_codex_rollout(path)
+            result = A.account_codex(catalog, [H.ROOT, H.CHILD], **H.CODEX_KW)
+            self.assertFalse(result['routing_ok'])
+            self.assertTrue(blockers_have(result, 'reasoning effort'))
+
+    def test_malformed_later_usage_update_withholds_exact_total_but_keeps_known_usage(self):
+        with tempfile.TemporaryDirectory() as raw:
+            for update in ({'total_token_usage': 'bad'}, {'total_token_usage': None}):
+                path = H.write_rollout(Path(raw) / 'root.jsonl', H.ROOT, total=H.usage(100, 0, 20, 0))
+                with path.open('a') as handle:
+                    handle.write(json.dumps({'type': 'event_msg', 'payload': {'type': 'token_count',
+                                                                             'info': update}}) + '\n')
+                catalog = H.codex_catalog()
+                catalog[H.ROOT] = A.scan_codex_rollout(path)
+                result = A.account_codex(catalog, [H.ROOT, H.CHILD], **H.CODEX_KW)
+                self.assertFalse(result['usage_complete'], update)
+                self.assertIsNone(result['cloud_total'], update)
+                self.assertEqual(result['known_lower_bound'], 520)
 
     def test_real_multi_agent_rollout_shapes_keep_the_root_verdict_its_own(self):
         # Shapes observed in Codex 0.163/0.164 rollouts: spawn_agent returns only a task name,
@@ -307,6 +356,36 @@ class CodexRolloutFiles(unittest.TestCase):
             self.assertEqual(result['incomplete_sessions'], [f'{H.CHILD}:child:aborted'])
             self.assertFalse(result['routing_ok'])
 
+    def test_duplicate_rollout_sources_are_preserved_and_prevent_exact_accounting(self):
+        with tempfile.TemporaryDirectory() as raw:
+            home = Path(raw)
+            first = H.write_rollout(home / 'a-root.jsonl', H.ROOT, total=H.usage(100, 0, 20, 0))
+            second = home / 'b-root.jsonl'
+            for conflicting in (False, True):
+                second.write_bytes(first.read_bytes())
+                if conflicting:
+                    H.write_rollout(second, H.ROOT, total=H.usage(200, 0, 30, 0), malformed=1)
+                H.write_rollout(home / 'child.jsonl', H.CHILD, parent=H.ROOT, model=H.LUNA,
+                                total=H.usage(100, 0, 20, 0))
+                catalog = A.scan_codex_rollouts(home)
+                self.assertEqual(catalog[H.ROOT].get('rollout_paths'), [str(first), str(second)])
+                result = A.account_codex(catalog, A.codex_tree(catalog, H.ROOT), **H.CODEX_KW)
+                self.assertFalse(result['usage_complete'])
+                self.assertFalse(result['routing_ok'])
+                self.assertIsNone(result['cloud_total'])
+                self.assertTrue(blockers_have(result, 'rollout source'))
+
+    def test_duplicate_sources_cannot_hide_a_descendant_by_changing_lineage(self):
+        with tempfile.TemporaryDirectory() as raw:
+            home = Path(raw)
+            H.write_rollout(home / 'root.jsonl', H.ROOT, total=H.usage(100, 0, 20, 0))
+            H.write_rollout(home / 'a-child.jsonl', H.CHILD, parent='unrelated', model=H.LUNA,
+                            total=H.usage(100, 0, 20, 0))
+            H.write_rollout(home / 'b-child.jsonl', H.CHILD, parent=H.ROOT, model=H.LUNA,
+                            total=H.usage(100, 0, 20, 0))
+            catalog = A.scan_codex_rollouts(home)
+            self.assertIn(H.CHILD, A.codex_tree(catalog, H.ROOT))
+
     def test_unknown_root_thread_fails_preflight(self):
         with self.assertRaises(A.PreflightBlocker):
             A.codex_tree({}, H.ROOT)
@@ -332,6 +411,13 @@ class VerdictSemantics(unittest.TestCase):
         self.assertEqual(A.semantic_verdict('VERDICT: PASS', H.SHA)['status'], 'missing_digest')
         self.assertEqual(A.semantic_verdict('tests green', H.SHA)['status'], 'absent')
         self.assertEqual(A.semantic_verdict('VERDICT: FAIL ' + H.SHA, H.SHA)['status'], 'not_pass')
+
+    def test_mismatched_or_shorter_fences_cannot_promote_a_quoted_verdict(self):
+        for opening, false_close in (('```python', '~~~'), ('````', '```'), ('~~~', '~~~still code')):
+            text = opening + '\n' + false_close + '\nVERDICT: PASS ' + H.SHA
+            result = A.semantic_verdict(text, H.SHA)
+            self.assertEqual(result['status'], 'forged', (opening, false_close))
+            self.assertFalse(result['digest_matches'])
 
 
 class NativeConfig(unittest.TestCase):
@@ -702,6 +788,27 @@ class OpenCodeAccounting(unittest.TestCase):
         result = H.hybrid_arm(recs)
         self.assertEqual(result['review_sessions'], [H.REVIEW])
         self.assertTrue(result['routing_ok'])
+
+
+class OpenCodeRootEvidence(unittest.TestCase):
+    def test_explicit_missing_root_id_never_falls_back_to_another_session(self):
+        result = A.account_opencode({'records': H.arm_records()}, root_session_ids=['missing'], **H.OC_KW)
+        self.assertFalse(result['routing_ok'])
+        self.assertTrue(blockers_have(result, 'missing'))
+
+    def test_partial_root_id_coverage_is_rejected(self):
+        result = A.account_opencode({'records': H.arm_records()}, root_session_ids=[H.ROOT, 'missing'], **H.OC_KW)
+        self.assertFalse(result['routing_ok'])
+        self.assertTrue(blockers_have(result, 'missing'))
+
+    def test_required_roles_must_descend_from_the_recorded_root(self):
+        for sid in (H.CHILD, H.REVIEW):
+            for parent in (None, 'unrelated', sid):
+                recs = H.arm_records()
+                H.by_id(recs)[sid]['session']['parent_id'] = parent
+                result = H.hybrid_arm(recs)
+                self.assertFalse(result['routing_ok'], (sid, parent))
+                self.assertTrue(blockers_have(result, 'descendant'), (sid, parent))
 
 
 class OpenCodeDatabase(unittest.TestCase):

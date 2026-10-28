@@ -38,8 +38,9 @@ Facts that shape the prompts (OpenCode 2.1.4):
 
 ### Install on a Mac
 
-1. Merge `config/opencode.json` into `~/.config/opencode/opencode.json` without replacing existing
-   providers.
+1. Merge `config/opencode.json` into `~/.config/opencode/opencode.json`, preserving existing
+   providers, models, the selected cloud model and custom permission rules. Do not replace the
+   whole installed configuration.
 2. Next to it, place three sidecars:
    - `local-model.txt`: the served model ID;
    - `omlx-url.txt`: e.g. `http://127.0.0.1:8000/v1`;
@@ -47,6 +48,11 @@ Facts that shape the prompts (OpenCode 2.1.4):
 3. Set `limit.context` and `limit.output` to that Mac's real local limits. The profile assumes
    32,768 and 8,192.
 4. Log in to the cloud provider in OpenCode (`opencode auth login`).
+5. Inspect the effective roles with `opencode debug agents --standalone`. Confirm `general` and
+   `explore` use the served local model, `hybrid` and `review` inherit the selected cloud model,
+   and existing permission rules remain in force. A denied fixture check (including `./check.sh`)
+   blocks the round: stop and report it, without routing the command through another tool or shell
+   to evade the denial. Any permission change must be authorized before preparing a new round.
 
 ## The benchmark (`benchmarks/`)
 
@@ -97,7 +103,7 @@ run directories.
 
 Results of every paid round: `benchmarks/results/RESULTS.md`.
 
-**Current result (`swiftui-list`, rounds 3–5, unchanged profile):**
+**Recorded M1 Max result (`swiftui-list`, 2026-10-27, rounds 3–5, profile `640778a`):**
 - Both arms were accepted 3/3.
 - Hybrid used about 56k cloud tokens against Codex's 637k–722k, a median ratio of 0.086.
 - The cloud share was 0.30–0.31, so the 0.35 target held and the 0.20 stretch target did not.

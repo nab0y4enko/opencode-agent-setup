@@ -1,0 +1,165 @@
+{
+  "date": "2026-10-28",
+  "fixture": "ttl-python",
+  "round": 1,
+  "hardware": {
+    "computer": "Mac Studio",
+    "model_identifier": "Mac17,14",
+    "chip": "Apple M5 Max",
+    "cpu_description": "proc 18:6:12:0",
+    "memory": "128 GB",
+    "gpus": [
+      {
+        "chip": "Apple M5 Max",
+        "cores": 40
+      }
+    ]
+  },
+  "cpu_count": 18,
+  "physical_memory_bytes": 137438953472,
+  "software": {
+    "macos": "27.0.1",
+    "xcode": "27.1 (27A9275)",
+    "codex": "codex-cli 0.165.0",
+    "opencode": "opencode v2.2.0",
+    "omlx": "0.7.3rc1 (3517)"
+  },
+  "local_model": {
+    "served_id": "qwen-3.8-nf-splash",
+    "artifact": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+    "backend": "oMLX external Splash (GGUF)",
+    "context": 262144,
+    "output": 8192
+  },
+  "models": {
+    "codex_cloud": "gpt-6.1-sol",
+    "codex_child": "gpt-6-luna",
+    "opencode_cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/qwen-3.8-nf-splash",
+    "effort": "medium"
+  },
+  "budget": {
+    "wall_clock_seconds_per_arm": 180,
+    "initial": 1,
+    "repair": 1,
+    "max_workers": 4
+  },
+  "profile_sha256": "97b47a0ad6e2b3d1502825cf0337d8ee7328b71d069795676cde8c86fe687fe8",
+  "permission_policy": "existing installed rules preserved; worker check denied; no bypass",
+  "arms": {
+    "codex": {
+      "accepted": true,
+      "seats": {
+        "planner": {
+          "uncached_input": 23129,
+          "cached_input": 302080,
+          "output": 1690,
+          "reasoning": 495,
+          "total": 327394,
+          "model": "gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 9373,
+          "cached_input": 71552,
+          "output": 334,
+          "reasoning": 62,
+          "total": 81321,
+          "model": "gpt-6-luna"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 408715,
+      "cloud_cost_range": null,
+      "unknown_maintenance_tokens": 0,
+      "seconds": 111.662,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [],
+      "evidence_seal_sha256": "208aee8499fd8f116b410baded8e8bbae2b33145009b0a4e833d1833cdd2fae6"
+    },
+    "opencode": {
+      "accepted": false,
+      "seats": {
+        "planner": {
+          "uncached_input": 5596,
+          "cached_input": 9728,
+          "output": 598,
+          "reasoning": 72,
+          "total": 15994,
+          "model": "openai/gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 15205,
+          "cached_input": 31136,
+          "output": 1951,
+          "reasoning": 773,
+          "total": 49065,
+          "model": "omlx/qwen-3.8-nf-splash"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 15994,
+      "cloud_cost_range": {
+        "lower_bound": 15994,
+        "upper_bound": 16959,
+        "status": "cloud_exact_unknown",
+        "note": "unknown maintenance stays its own number; the exact cloud total and every upper bound are withheld while usage evidence or routing coverage is incomplete"
+      },
+      "unknown_maintenance_tokens": 965,
+      "seconds": 73.356,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [
+        "no review subagent session was recorded; the native semantic review is missing",
+        "recorded routing is not the frozen root/child model and effort",
+        "the verdict did not come from the authoritative reviewer channel",
+        "no substantive semantic PASS verdict (absent); passing tests alone never accept"
+      ],
+      "evidence_seal_sha256": "65ca4c6e4ee5048c81de0f949f0a673f4baba1a7a5bdcb04ce69285a367cf840"
+    }
+  },
+  "accepted_arms": [
+    "codex"
+  ],
+  "comparison_status": "undefined",
+  "cleanup": [
+    {
+      "arm": "codex",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "8e9565bb7b9237d11df7f7d92808de8532ba5fecff13e0f8f9bf094490fb5652",
+      "bundle_verified": true,
+      "bundle_sha256": "8cef6af47542f1120c359138e1b89f3d22d63d722ece3720ae5cd8dcc7c528c1"
+    },
+    {
+      "arm": "opencode",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "64cdabbc9b16ee670a29a9d5d7452fe445fa35415ae4117c074404be0e82b65b",
+      "bundle_verified": true,
+      "bundle_sha256": "8cef6af47542f1120c359138e1b89f3d22d63d722ece3720ae5cd8dcc7c528c1"
+    }
+  ]
+}

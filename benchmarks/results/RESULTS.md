@@ -4,7 +4,44 @@ Every paid round is listed, failed ones included. "Cloud" is all cloud tokens of
 Sol + Luna; Hybrid: Sol coordinator + reviewer). Cached input is counted inside cloud tokens and
 shown separately in each round's `REPORT.md`. Raw tokens are not prices or quota.
 
-## SwiftUI simulator fixture (`swiftui-list`, current profile)
+## Mac Studio M5 Max audit (2026-10-28)
+
+Hardware: **Mac Studio, Apple M5 Max, 18 CPU cores, 40 GPU cores, 128 GB unified memory**.
+Software: macOS 27.0.1, Xcode 27.1 (27A9275), Codex CLI 0.165.0, OpenCode 2.2.0,
+oMLX 0.7.3rc1 (3517). Both cloud roots use GPT-6.1 Sol medium; Codex workers use GPT-6 Luna
+medium. The local served alias `qwen-3.8-nf-splash` is `Qwen3.8-Flash-Next-UD-Q4_K_XL`,
+served through oMLX's external Splash/GGUF backend, with context 262,144 and output 8,192.
+This differs from the M1 Max model and context below; these are separate machine/model measurements.
+
+The updated profile was merged into the installed configuration with verified private backups,
+preserving the selected cloud model, other providers/agents, local limits and existing permission
+rules. Offline regression tests cover accounting, frozen inputs, evidence seals, process cleanup,
+recovery archives and hardware redaction. Frozen fixture solutions remain unchanged in this repository.
+
+| fixture / round | Codex accepted | Codex cloud (Sol / Luna) | Codex s | Hybrid accepted | Hybrid attributed cloud | Hybrid local | unknown maintenance | Hybrid s |
+|---|---|---|---|---|---|---|---|---|
+| `ttl-python` / 1 | yes | 408,715 (327,394 / 81,321) | 111.662 | **no**: installed shell permission denied the worker check; no review | 15,994 | 49,065 | 965 | 73.356 |
+
+Both Python patches passed all 12 tests in the runner's independent check. Hybrid stopped after the
+permission denial, without its own final verification or authoritative review. It is **rejected**;
+its low spend is not an accepted saving, and the accepted-arm comparison ratio is undefined.
+Hybrid's recorded cloud interval is 15,994–16,959 tokens; the 965 unattributed maintenance tokens
+remain separate. Both checkouts were archived, verified and removed, including ignored artifacts.
+The redacted [round record](m5max-2026-10-28-ttl-01.json) contains hardware, seat counts, check results
+and evidence/archive hashes. Raw run directories and credentials remain outside the repository.
+
+`swiftui-list` has **no completed measurement on this Mac**. Two unpaid preparations were stopped:
+the first was superseded by the reviewed profile correction, and the second was stopped while
+authorization for the required worker check remains pending. Xcode had not produced a baseline
+summary. Neither preparation launched a model arm; neither is a pass or a token comparison.
+Their checkouts, partial Xcode logs and build artifacts were archived and verified before removal;
+their run-owned simulators were deleted. No installed permission denial was bypassed.
+
+The current runner reports uncertainty intervals and requires their upper bounds to meet token
+targets. Historical attributed-only shares below remain recorded as originally published; excluding
+maintenance does not, by itself, prove a target under the stricter current calculation.
+
+## SwiftUI simulator fixture (`swiftui-list`, M1 Max profile at `640778a`)
 
 Targets: Hybrid accepted in 3 of 3 final rounds; Hybrid cloud ≤ 50% of Codex cloud; Hybrid cloud
 share (Sol ÷ (Sol + local)) ≤ 0.35, stretch ≤ 0.20.
