@@ -59,6 +59,25 @@ class RecoveryArchives(unittest.TestCase):
             self.assertEqual(tar.extractfile('codex/.bench-build/DerivedData/compile.log').read(), b'needed build evidence\n')
 
 
+class ClientInput(unittest.TestCase):
+    def test_a_client_reading_stdin_never_waits_on_the_runners_open_pipe(self):
+        # `opencode run` waits for stdin EOF when stdin is a pipe, as it is under an agent harness.
+        import os
+        read_end, write_end = os.pipe()
+        saved = os.dup(0)
+        os.dup2(read_end, 0)
+        try:
+            with tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                record = R.launch([sys.executable, '-c', 'import sys; sys.stdin.read()'], root, root, 5, 'client')
+        finally:
+            os.dup2(saved, 0)
+            for fd in (saved, read_end, write_end):
+                os.close(fd)
+        self.assertFalse(record['timed_out'])
+        self.assertEqual(record['exit_code'], 0)
+
+
 class CheckProcessSafety(unittest.TestCase):
     def test_timed_out_independent_check_terminates_its_descendants(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -320,3 +339,52 @@ class SimulatorCreationInterruption(T.FakeCliHarness):
                 R.start_arm_simulator(self.out, manifest, 'codex')
         self.assertEqual(R.load_manifest(self.out)['simulators']['codex'], record)
         boot.assert_not_called()
+
+
+class PermissionGate(T.FakeCliHarness):
+    ALLOWLIST = [{'action': '*', 'resource': '*', 'effect': 'allow'}, {'action': 'shell', 'resource': '*', 'effect': 'deny'},
+                 {'action': 'shell', 'resource': 'git *', 'effect': 'allow'},
+                 {'action': 'shell', 'resource': 'python3 -m unittest*', 'effect': 'allow'}]
+
+    def configure(self, **overrides):
+        path = Path(self.opencode + '.cfg')
+        path.write_text(json.dumps(dict(json.loads(path.read_text()), **overrides)), encoding='utf-8')
+
+    def calls(self):
+        path = Path(self.opencode + '.calls')
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def test_a_restricted_role_stops_prepare_before_baseline_probe_or_any_arm(self):
+        open_rules = [{'action': '*', 'resource': '*', 'effect': 'allow'}]
+        self.configure(effective_agents=[{'id': 'hybrid', 'permissions': open_rules},
+                                         {'id': 'general', 'permissions': self.ALLOWLIST},
+                                         {'id': 'review', 'permissions': open_rules}])
+        code, text = self.cli(['prepare'] + self.frozen())
+        self.assertEqual(code, 2, text)
+        self.assertIn('installed OpenCode general agent would deny shell', text)
+        self.assertIn('deny shell `tee', text)
+        self.assertFalse((self.out / 'arms' / 'codex' / 'baseline.check.log').exists())
+        self.assertEqual([c for c in self.calls() if c[:1] == ['run']], [], 'a probe ran despite refused rules')
+        code, text = self.cli(['run'] + self.frozen() + ['--live'])
+        self.assertEqual(code, 2, text)
+        self.assertIn('installed OpenCode general agent would deny', text)
+        self.assertFalse((self.home / 'sessions').exists(), 'a paid Codex arm launched')
+        self.assertEqual([c for c in self.calls() if '--agent' in c and 'hybrid' in c], [])
+
+    def test_a_denied_local_probe_stops_prepare(self):
+        self.configure(probe_denied=['review'])
+        code, text = self.cli(['prepare'] + self.frozen())
+        self.assertEqual(code, 2, text)
+        self.assertIn('local-model probe of review was denied', text)
+        gate = json.loads((self.out / 'manifest.json').read_text())['permission_gate']
+        self.assertEqual((gate['status'], gate['probes']['general']['denied']), ('blocked', []))
+
+    def test_open_roles_pass_with_local_only_probes(self):
+        self.assertEqual(self.cli(['prepare'] + self.frozen())[0], 0)
+        gate = json.loads((self.out / 'manifest.json').read_text())['permission_gate']
+        self.assertEqual(gate['status'], 'passed')
+        probes = [c for c in self.calls() if c[:1] == ['run']]
+        self.assertEqual(sorted(c[c.index('--agent') + 1] for c in probes), ['general', 'review'])
+        self.assertTrue(all(c[c.index('--model') + 1] == 'omlx/test-local' for c in probes), probes)
+        for role in ('general', 'review'):
+            self.assertTrue((self.out / 'permission-gate' / role / '.git').is_dir(), 'probe ran outside its own repo')

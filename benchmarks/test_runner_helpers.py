@@ -143,9 +143,26 @@ FAKE_OPENCODE = r'''
 import hashlib, json, sqlite3, subprocess, sys
 from pathlib import Path
 cfg = json.loads(Path(sys.argv[0] + '.cfg').read_text())
-if '--version' in sys.argv[1:]:
+args = sys.argv[1:]
+with open(sys.argv[0] + '.calls', 'a') as calls:
+    calls.write(json.dumps(args) + '\n')
+if '--version' in args:
     print('opencode 0.0.0-fake-offline')
     sys.exit(0)
+if args[:2] == ['debug', 'agents']:
+    # Effective rules as OpenCode lists them: defaults first, the last matching rule wins.
+    open_rules = [{'action': '*', 'resource': '*', 'effect': 'allow'}]
+    agents = cfg.get('effective_agents') or [{'id': role, 'permissions': open_rules} for role in ('hybrid', 'general', 'explore', 'review')]
+    print(json.dumps(agents))
+    sys.exit(cfg.get('debug_exit', 0))
+if '--agent' in args and args[args.index('--agent') + 1] in ('general', 'review'):
+    role = args[args.index('--agent') + 1]
+    command = {'command': 'git status --short | tee probe.log'}
+    state = ({'status': 'error', 'input': command, 'error': 'Permission denied: shell'} if role in cfg.get('probe_denied', [])
+             else {'status': 'completed', 'input': command, 'output': ''})
+    print(json.dumps({'type': 'tool_use', 'part': {'type': 'tool', 'tool': 'shell', 'state': state}}))
+    print(json.dumps({'type': 'text', 'part': {'type': 'text', 'text': 'DONE'}}))
+    sys.exit(cfg.get('probe_exit', 0))
 repo = Path.cwd()
 if cfg.get('apply_fix', True):
     path = repo / 'ttl_cache.py'

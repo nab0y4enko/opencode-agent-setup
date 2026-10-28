@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import accounting as A
 import fixtures as FX
 import hardware
+import permissions as P
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_FIXTURE = 'ttl-python'
 DEFAULT_CLOUD_CODEX = 'gpt-6.1-sol'
@@ -170,11 +171,76 @@ def make_checkout(repo, fixture):
     exclude = repo / '.git' / 'info' / 'exclude'
     exclude.parent.mkdir(parents=True, exist_ok=True)
     exclude.write_text(''.join(f'{pattern}\n' for pattern in ['__pycache__/', '*.pyc'] + fixture.excluded), encoding='utf-8')
-    # The baseline commit is the runner's own: no user hook or signing setup may alter or block it.
-    isolated = ('-c', 'user.name=benchmark', '-c', 'user.email=benchmark@local', '-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false')
-    git(repo, *isolated, 'add', '-A')
-    git(repo, *isolated, 'commit', '-qm', 'frozen fixture baseline')
+    git(repo, *ISOLATED_GIT, 'add', '-A')
+    git(repo, *ISOLATED_GIT, 'commit', '-qm', 'frozen fixture baseline')
     return git(repo, 'rev-parse', 'HEAD')
+
+# The runner's own commits: no user hook or signing setup may alter or block them.
+ISOLATED_GIT = ('-c', 'user.name=benchmark', '-c', 'user.email=benchmark@local', '-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false')
+PROBE_TIMEOUT = 120
+
+def make_probe_repo(repo):
+    """A throwaway repository outside both arms, so probe sessions never mix with arm evidence."""
+    repo.mkdir(parents=True)
+    (repo / 'probe.txt').write_text('probe\n', encoding='utf-8')
+    git(repo, 'init', '-q')
+    git(repo, *ISOLATED_GIT, 'add', '-A')
+    git(repo, *ISOLATED_GIT, 'commit', '-qm', 'permission probe')
+    (repo / 'probe.txt').write_text('probe\nchanged\n', encoding='utf-8')
+
+def permission_gate(out, manifest):
+    """Before any baseline or cloud token: every installed Hybrid role must allow what a round runs.
+
+    First OpenCode's own effective rules, read inside the Hybrid checkout so project config counts;
+    then general and review each run one wrapped command on the local model only.
+    """
+    evidence = out / 'permission-gate'
+    evidence.mkdir(parents=True, exist_ok=True)
+    binary = manifest['binaries'].get('opencode') or 'opencode'
+    repo = Path(manifest['arms']['opencode']['repo'])
+    record = {'blockers': [], 'warnings': [], 'probes': {}}
+    listing, failure = None, None
+    try:
+        proc = subprocess.run([binary, 'debug', 'agents', '--standalone'], cwd=str(repo), stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=60, check=False)
+        if proc.returncode:
+            failure = f'exit {proc.returncode}: {(proc.stderr or proc.stdout).strip()[:300]}'
+        else:
+            listing = json.loads(proc.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        failure = f'{type(exc).__name__}: {exc}'
+    if not isinstance(listing, list):
+        record['blockers'].append(f'cannot read the effective OpenCode permissions with `{binary} debug agents --standalone` '
+                                  f'({failure or "not a list of agents"}); no round can prove its roles may run their commands')
+    else:
+        (evidence / 'effective-agents.json').write_text(json.dumps(listing, indent=2), encoding='utf-8')
+        blockers, decisions = P.gate(listing, check=' '.join(manifest['check']['opencode']), repo=repo,
+                                     allowed_changed=manifest['allowed_changed'])
+        record['blockers'] += blockers
+        record['decisions'] = decisions
+    for role in ([] if record['blockers'] else P.PROBE_ROLES):
+        probe_repo = evidence / role
+        make_probe_repo(probe_repo)
+        try:
+            execution = launch([binary, 'run', '--standalone', '--format', 'json', '--agent', role,
+                                '--model', manifest['models']['local'], P.PROBE_PROMPT],
+                               probe_repo, evidence, PROBE_TIMEOUT, f'probe-{role}')
+        except OSError as exc:
+            record['blockers'].append(f'the local-model probe of {role} could not start: {exc}')
+            continue
+        seen = P.probe_result((evidence / f'probe-{role}.stdout.log').read_text(encoding='utf-8', errors='replace'))
+        record['probes'][role] = dict(seen, exit_code=execution['exit_code'], timed_out=execution['timed_out'])
+        if seen['denied']:
+            record['blockers'].append(f'the local-model probe of {role} was denied {seen["denied"]} — {P.FIX}')
+        elif execution['timed_out'] or execution['exit_code'] or seen['errors']:
+            record['blockers'].append(f'the local-model probe of {role} did not finish (exit {execution["exit_code"]}, '
+                                      f'timed out {execution["timed_out"]}, errors {seen["errors"]}); the local model or '
+                                      'OpenCode is not ready, so a paid round would fail')
+        elif not seen['tool_calls']:
+            record['warnings'].append(f'the local-model probe of {role} ran no shell command; only the rule check covers it')
+    record['status'] = 'blocked' if record['blockers'] else 'passed'
+    (evidence / 'permission-gate.json').write_text(json.dumps(record, indent=2), encoding='utf-8')
+    return record
 
 def simulator_line(fixture, arm):
     simulator = fixture.simulator(arm)
@@ -412,8 +478,14 @@ def cmd_prepare(args):
     save_manifest(out, manifest)
     blockers = list(profile_blockers)
     interrupted = False
+    arm = None
     try:
-        for arm in ('codex', 'opencode'):
+        gate = permission_gate(out, manifest)
+        manifest['permission_gate'] = {key: gate[key] for key in ('status', 'blockers', 'warnings', 'probes')}
+        blockers += gate['blockers']
+        save_manifest(out, manifest)
+        # A refused role fails the round now: no simulator, baseline or paid arm is worth running.
+        for arm in (() if gate['blockers'] else ('codex', 'opencode')):
             if fixture.needs_simulator:
                 create_owned_simulator(out, manifest, arm, fixture.simulator(arm))
             # The baseline proves the frozen starting point on this Mac and warms each arm's own build folder equally.
@@ -426,10 +498,11 @@ def cmd_prepare(args):
         blockers.append(str(exc))
     except KeyboardInterrupt:
         interrupted = True
-        blockers.append(f'preparation interrupted during the {arm} baseline; partial logs and both checkouts are retained')
+        stage = 'the permission gate' if arm is None else f'the {arm} baseline'
+        blockers.append(f'preparation interrupted during {stage}; partial logs and both checkouts are retained')
         manifest['state'] = 'preparation_interrupted'
         manifest['preparation_interruption'] = {'utc': now(), 'arm': arm, 'exit_code': 130,
-                                              'log': str(out / 'arms' / arm / 'baseline.check.log')}
+                                              'log': str(out / 'permission-gate' if arm is None else out / 'arms' / arm / 'baseline.check.log')}
         (out / 'preparation-interruption.json').write_text(json.dumps(manifest['preparation_interruption'], indent=2), encoding='utf-8')
     finally:
         manifest['preparation_blockers'] = [b for b in blockers if b not in profile_blockers]
@@ -441,7 +514,7 @@ def cmd_prepare(args):
             manifest['preparation_blockers'].append(blockers[-1])
         save_manifest(out, manifest)
     (out / 'DESKTOP.md').write_text(DESKTOP_STEPS + '\nCodex fixture: ' + arms['codex']['repo'] + '\n', encoding='utf-8')
-    print(json.dumps({'out': str(out), 'state': manifest['state'], 'fixture': fixture.name, 'models': manifest['models'], 'budget': manifest['budget'], 'arms': arms, 'profile_blockers': profile_blockers, 'preparation_blockers': manifest['preparation_blockers']}, indent=2))
+    print(json.dumps({'out': str(out), 'state': manifest['state'], 'fixture': fixture.name, 'models': manifest['models'], 'budget': manifest['budget'], 'arms': arms, 'profile_blockers': profile_blockers, 'permission_gate': manifest.get('permission_gate'), 'preparation_blockers': manifest['preparation_blockers']}, indent=2))
     if interrupted:
         return 130
     if blockers:
@@ -486,7 +559,7 @@ def launch(argv, cwd, evidence, timeout, name, env=None):
     stderr_path = evidence / f'{name}.stderr.log'
     start = time.time()
     with stdout_path.open('w', encoding='utf-8') as out_log, stderr_path.open('w', encoding='utf-8') as err_log:
-        proc = subprocess.Popen(argv, cwd=str(cwd), env=env, stdout=out_log, stderr=err_log, start_new_session=True)
+        proc = subprocess.Popen(argv, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL, stdout=out_log, stderr=err_log, start_new_session=True)
         pgid = os.getpgid(proc.pid)
         timed_out = False
         interrupted = False
@@ -554,7 +627,7 @@ def run_check(repo, evidence, name, timeout, manifest, arm):
     started = time.monotonic()
     with log_path.open('w', encoding='utf-8') as log:
         try:
-            proc = subprocess.Popen(argv, cwd=str(repo), stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            proc = subprocess.Popen(argv, cwd=str(repo), stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             try:
                 code = proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired as exc:
@@ -1634,7 +1707,7 @@ def parser():
         cmd.add_argument('--effort', default=DEFAULT_EFFORT, help='frozen reasoning effort for the cloud root and the delegated worker')
         cmd.add_argument('--permission-policy', default='installed native denials preserved; --auto not used')
         cmd.add_argument('--live', action='store_true', help='launch the arms; without it nothing launches')
-    common(sub.add_parser('prepare', help='freeze a fresh run (launches no model)'))
+    common(sub.add_parser('prepare', help='freeze a fresh run (local-model permission probe only; no cloud model)'))
     common(sub.add_parser('run', help='prepare if needed, then both CLI arms'))
     finish = sub.add_parser('finish', help='import a real Codex App session, then Hybrid')
     finish.add_argument('out')

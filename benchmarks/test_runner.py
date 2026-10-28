@@ -936,6 +936,7 @@ class OfflineEvidenceAndRecovery(FakeCliHarness):
         self.assertEqual(report['metrics']['per_arm_completed_tasks'], {'codex': 1, 'opencode': 0})
 
     def test_a_launch_error_is_recorded_instead_of_vanishing(self):
+        self.assertEqual(self.cli(['prepare'] + self.frozen())[0], 0)
         with mock.patch.object(R, 'launch', side_effect=OSError(13, 'Permission denied')):
             (code, text) = self.live()
         self.assertEqual(code, 0, text)
