@@ -201,8 +201,9 @@ def permission_gate(out, manifest):
     record = {'blockers': [], 'warnings': [], 'probes': {}}
     listing, failure = None, None
     try:
-        proc = subprocess.run([binary, 'debug', 'agents', '--standalone'], cwd=str(repo), stdin=subprocess.DEVNULL,
-                              capture_output=True, text=True, timeout=60, check=False)
+        # OpenCode takes its project directory from $PWD, as the arm launch sets it.
+        proc = subprocess.run([binary, 'debug', 'agents', '--standalone'], cwd=str(repo), env=dict(os.environ, PWD=str(repo)),
+                              stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60, check=False)
         if proc.returncode:
             failure = f'exit {proc.returncode}: {(proc.stderr or proc.stdout).strip()[:300]}'
         else:
@@ -224,7 +225,7 @@ def permission_gate(out, manifest):
         try:
             execution = launch([binary, 'run', '--standalone', '--format', 'json', '--agent', role,
                                 '--model', manifest['models']['local'], P.PROBE_PROMPT],
-                               probe_repo, evidence, PROBE_TIMEOUT, f'probe-{role}')
+                               probe_repo, evidence, PROBE_TIMEOUT, f'probe-{role}', env=dict(os.environ, PWD=str(probe_repo)))
         except OSError as exc:
             record['blockers'].append(f'the local-model probe of {role} could not start: {exc}')
             continue

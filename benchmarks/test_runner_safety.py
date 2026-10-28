@@ -350,9 +350,10 @@ class PermissionGate(T.FakeCliHarness):
         path = Path(self.opencode + '.cfg')
         path.write_text(json.dumps(dict(json.loads(path.read_text()), **overrides)), encoding='utf-8')
 
-    def calls(self):
+    def calls(self, with_pwd=False):
         path = Path(self.opencode + '.calls')
-        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+        entries = [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+        return entries if with_pwd else [entry['args'] for entry in entries]
 
     def test_a_restricted_role_stops_prepare_before_baseline_probe_or_any_arm(self):
         open_rules = [{'action': '*', 'resource': '*', 'effect': 'allow'}]
@@ -386,5 +387,10 @@ class PermissionGate(T.FakeCliHarness):
         probes = [c for c in self.calls() if c[:1] == ['run']]
         self.assertEqual(sorted(c[c.index('--agent') + 1] for c in probes), ['general', 'review'])
         self.assertTrue(all(c[c.index('--model') + 1] == 'omlx/test-local' for c in probes), probes)
-        for role in ('general', 'review'):
-            self.assertTrue((self.out / 'permission-gate' / role / '.git').is_dir(), 'probe ran outside its own repo')
+        # OpenCode takes its project directory from $PWD: a stale one runs the probe in the caller's folder.
+        for entry in self.calls(with_pwd=True):
+            if entry['args'][:2] == ['debug', 'agents']:
+                self.assertEqual(Path(entry['pwd']).resolve(), (self.out / 'arms' / 'opencode' / 'repo').resolve())
+            elif entry['args'][:1] == ['run']:
+                role = entry['args'][entry['args'].index('--agent') + 1]
+                self.assertEqual(Path(entry['pwd']).resolve(), (self.out / 'permission-gate' / role).resolve())

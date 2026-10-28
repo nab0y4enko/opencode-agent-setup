@@ -140,12 +140,13 @@ if cfg.get('sleep'):
 sys.exit(cfg.get('exit_code', 0))
 '''
 FAKE_OPENCODE = r'''
-import hashlib, json, sqlite3, subprocess, sys
+import hashlib, json, os, sqlite3, subprocess, sys
 from pathlib import Path
 cfg = json.loads(Path(sys.argv[0] + '.cfg').read_text())
 args = sys.argv[1:]
+# Like the real client, the project directory is $PWD, not the process working directory.
 with open(sys.argv[0] + '.calls', 'a') as calls:
-    calls.write(json.dumps(args) + '\n')
+    calls.write(json.dumps({'args': args, 'pwd': os.environ.get('PWD')}) + '\n')
 if '--version' in args:
     print('opencode 0.0.0-fake-offline')
     sys.exit(0)
