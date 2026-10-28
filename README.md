@@ -27,11 +27,12 @@ are medians over the final rounds on an unchanged profile; every round is in
 Software for the M1 Max rows: macOS 27.0.1, Xcode 27.1 (iOS 27 simulator), Codex CLI 0.164,
 OpenCode 2.1.4, oMLX 0.7.3, profile commit `640778a`, rounds run on 2026-10-27.
 
-The 2026-10-28 audit also ran `ttl-python` on a **Mac Studio M5 Max (18 CPU / 40 GPU cores,
-128 GB)** with `qwen-3.8-nf-splash`. Codex was accepted; Hybrid stopped at an installed shell
-permission denial and was rejected despite passing the independent tests. SwiftUI preparation was
-stopped while check-command authorization remains pending, so there is no M5 Max SwiftUI row yet.
-See [the hardware, failed round and retained spend](benchmarks/results/RESULTS.md#mac-studio-m5-max-audit-2026-10-28).
+The 2026-10-28 audit ran four `ttl-python` and two `swiftui-list` rounds on a **Mac Studio M5 Max
+(18 CPU / 40 GPU cores, 128 GB)** with `qwen-3.8-nf-splash`. Every Hybrid arm was rejected: the
+installed configuration's pre-existing deny-by-default shell allowlists on `general` and `review`
+denied the wrappers the local model adds (`| tee`, `2>&1`, `cd &&`, `printf`), and the last SwiftUI
+round hit the ChatGPT usage limit in both arms. There is no accepted M5 Max row yet. See
+[the rounds, their causes and retained spend](benchmarks/results/RESULTS.md#mac-studio-m5-max-audit-2026-10-28).
 
 Cloud share is Sol ÷ (Sol + local) inside the Hybrid session; the target is ≤ 0.35 (stretch ≤ 0.20).
 Hybrid ÷ Codex cloud below 0.5 means the hybrid flow at least halves cloud tokens.

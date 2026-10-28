@@ -1,0 +1,196 @@
+{
+  "date": "2026-10-28",
+  "fixture": "swiftui-list",
+  "round": 1,
+  "hardware": {
+    "computer": "Mac Studio",
+    "model_identifier": "Mac17,14",
+    "chip": "Apple M5 Max",
+    "cpu_description": "proc 18:6:12:0",
+    "memory": "128 GB",
+    "gpus": [
+      {
+        "chip": "Apple M5 Max",
+        "cores": 40
+      }
+    ]
+  },
+  "cpu_count": 18,
+  "physical_memory_bytes": 137438953472,
+  "software": {
+    "macos": "27.0.1",
+    "xcode": "27.1 (27A9275)",
+    "codex": "codex-cli 0.165.0",
+    "opencode": "opencode v2.2.0",
+    "omlx": "0.7.3rc1 (3517)"
+  },
+  "local_model": {
+    "served_id": "qwen-3.8-nf-splash",
+    "artifact": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+    "backend": "oMLX external Splash (GGUF)",
+    "context": 262144,
+    "output": 8192
+  },
+  "models": {
+    "codex_cloud": "gpt-6.1-sol",
+    "codex_child": "gpt-6-luna",
+    "opencode_cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/qwen-3.8-nf-splash",
+    "effort": "medium"
+  },
+  "budget": {
+    "wall_clock_seconds_per_arm": 1200,
+    "initial": 1,
+    "repair": 1,
+    "max_workers": 4
+  },
+  "permission_policy": "user-authorized benchmark check rules appended; all previous rules retained; unrelated denials preserved",
+  "arms": {
+    "codex": {
+      "accepted": true,
+      "seats": {
+        "planner": {
+          "uncached_input": 19130,
+          "cached_input": 362240,
+          "output": 1325,
+          "reasoning": 157,
+          "total": 382852,
+          "model": "gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 10549,
+          "cached_input": 111360,
+          "output": 1154,
+          "reasoning": 212,
+          "total": 123275,
+          "model": "gpt-6-luna"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 506127,
+      "cloud_cost_range": null,
+      "unknown_maintenance_tokens": 0,
+      "seconds": 118.045,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [],
+      "evidence_seal_sha256": "f12bea21a97f90ae3f6b308684bd6daf1df6eec74827a832fa8de41586b2c859"
+    },
+    "opencode": {
+      "accepted": false,
+      "seats": {
+        "planner": {
+          "uncached_input": 20314,
+          "cached_input": 16512,
+          "output": 1411,
+          "reasoning": 143,
+          "total": 38380,
+          "model": "openai/gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 15050,
+          "cached_input": 86048,
+          "output": 3380,
+          "reasoning": 2766,
+          "total": 107244,
+          "model": "omlx/qwen-3.8-nf-splash"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 38380,
+      "cloud_cost_range": {
+        "lower_bound": 38380,
+        "upper_bound": 39437,
+        "status": "cloud_exact_unknown",
+        "note": "unknown maintenance stays its own number; the exact cloud total and every upper bound are withheld while usage evidence or routing coverage is incomplete"
+      },
+      "unknown_maintenance_tokens": 1057,
+      "seconds": 219.54,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [
+        "session <session> message <session> recorded a permission denial; the arm must stop, even if later checks or review pass; all spend is retained",
+        "recorded routing is not the frozen root/child model and effort",
+        "no substantive semantic PASS verdict (not_pass); passing tests alone never accept"
+      ],
+      "evidence_seal_sha256": "5e222677a28c4928a1d59ae210fa0b965eb6a516609dbd22844ab31ce9d590f0"
+    }
+  },
+  "accepted_arms": [
+    "codex"
+  ],
+  "comparison_status": "undefined",
+  "cleanup": [
+    {
+      "arm": "codex",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "d00f497746494a7afb8c92423b129c6e107c31ec7bd687e1d7d791363ccdeb6a",
+      "bundle_verified": true,
+      "bundle_sha256": "4e821abe41b47da538bbee911e9431ad3a003a39ccd6f3fa7718c8bd9b089fbe"
+    },
+    {
+      "arm": "opencode",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "530fd7fe87c49ecd64603160fd6fbc2526192e3b49d2cbeb3b2ed25eef0853b1",
+      "bundle_verified": true,
+      "bundle_sha256": "4e821abe41b47da538bbee911e9431ad3a003a39ccd6f3fa7718c8bd9b089fbe"
+    }
+  ],
+  "installed_config_sha256": "b0c9455dc307ec40adc214fe1e861b439ada77d6343d87459bcc8cd0fcc818d4",
+  "metrics": {
+    "hybrid_cloud_share": {
+      "value": 0.2635554578915563,
+      "exact": false,
+      "lower_bound": 0.2616562472303843,
+      "upper_bound": 0.2688623611783394,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "cloud_vs_codex": {
+      "value": 0.07583076974751396,
+      "hybrid_cloud": 38380,
+      "codex_cloud": 506127,
+      "lower_bound": 0.07583076974751396,
+      "upper_bound": 0.07791917838803304,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "targets": {
+      "both_arms_accepted": false,
+      "hybrid_cloud_at_most_half_of_codex": false,
+      "hybrid_cloud_share_at_most_0.35": false,
+      "stretch_cloud_share_at_most_0.20": false
+    }
+  },
+  "caveats": [],
+  "run_label": "swiftui-04",
+  "source_sha256": {
+    "benchmarks/run.py": "8117a7990f9b6c00517e2ecbf47ac64559f4504b8e7d9965b3a2c79e9765027c",
+    "benchmarks/accounting.py": "6d59f036e4bbce37b3e9f978137d26cb171cae7bc66360723c4f2f01e3a1a8b7",
+    "benchmarks/fixtures.py": "c3e6d7da39445e609c31d3cb6065ded79b45aa249e1bfe543b45a12e09878cf3",
+    "benchmarks/hardware.py": "5eacceea94584f14396f331ea4f2068e28c30113af9aa40857d29efcec15c7f2",
+    "config/opencode.json": "792e012c702972072e2e0de77872aabc452b85eebbd681dd39fd470b1daf3121"
+  }
+}

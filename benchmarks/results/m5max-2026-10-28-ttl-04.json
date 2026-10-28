@@ -1,0 +1,192 @@
+{
+  "date": "2026-10-28",
+  "fixture": "ttl-python",
+  "round": 4,
+  "hardware": {
+    "computer": "Mac Studio",
+    "model_identifier": "Mac17,14",
+    "chip": "Apple M5 Max",
+    "cpu_description": "proc 18:6:12:0",
+    "memory": "128 GB",
+    "gpus": [
+      {
+        "chip": "Apple M5 Max",
+        "cores": 40
+      }
+    ]
+  },
+  "cpu_count": 18,
+  "physical_memory_bytes": 137438953472,
+  "software": {
+    "macos": "27.0.1",
+    "xcode": "27.1 (27A9275)",
+    "codex": "codex-cli 0.165.0",
+    "opencode": "opencode v2.2.0",
+    "omlx": "0.7.3rc1 (3517)"
+  },
+  "local_model": {
+    "served_id": "qwen-3.8-nf-splash",
+    "artifact": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+    "backend": "oMLX external Splash (GGUF)",
+    "context": 262144,
+    "output": 8192
+  },
+  "models": {
+    "codex_cloud": "gpt-6.1-sol",
+    "codex_child": "gpt-6-luna",
+    "opencode_cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/qwen-3.8-nf-splash",
+    "effort": "medium"
+  },
+  "budget": {
+    "wall_clock_seconds_per_arm": 180,
+    "initial": 1,
+    "repair": 1,
+    "max_workers": 4
+  },
+  "permission_policy": "user-authorized benchmark check rules appended; all previous rules retained; unrelated denials preserved",
+  "arms": {
+    "codex": {
+      "accepted": true,
+      "seats": {
+        "planner": {
+          "uncached_input": 19680,
+          "cached_input": 240256,
+          "output": 1859,
+          "reasoning": 216,
+          "total": 262011,
+          "model": "gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 12706,
+          "cached_input": 47360,
+          "output": 285,
+          "reasoning": 83,
+          "total": 60434,
+          "model": "gpt-6-luna"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 322445,
+      "cloud_cost_range": null,
+      "unknown_maintenance_tokens": 0,
+      "seconds": 61.685,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [],
+      "evidence_seal_sha256": "31feb15fc6e44898a41b70da62dff6005b46a6cf5f57dfb906551532b78e1322"
+    },
+    "opencode": {
+      "accepted": false,
+      "seats": {
+        "planner": {
+          "uncached_input": 4859,
+          "cached_input": 4480,
+          "output": 461,
+          "reasoning": 87,
+          "total": 9887,
+          "model": "openai/gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 7726,
+          "cached_input": 51136,
+          "output": 1055,
+          "reasoning": 1181,
+          "total": 61098,
+          "model": "omlx/qwen-3.8-nf-splash"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 9887,
+      "cloud_cost_range": {
+        "lower_bound": 9887,
+        "upper_bound": 10861,
+        "status": "cloud_exact_unknown",
+        "note": "unknown maintenance stays its own number; the exact cloud total and every upper bound are withheld while usage evidence or routing coverage is incomplete"
+      },
+      "unknown_maintenance_tokens": 974,
+      "seconds": 47.569,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [
+        "session <session> message <session> recorded a permission denial; the arm must stop, even if later checks or review pass; all spend is retained",
+        "no review subagent session was recorded; the native semantic review is missing",
+        "recorded routing is not the frozen root/child model and effort",
+        "the verdict did not come from the authoritative reviewer channel",
+        "no substantive semantic PASS verdict (absent); passing tests alone never accept"
+      ],
+      "evidence_seal_sha256": "44ec0eabbc8d7bf24d11a2886ee180e362faf9308e3aaf8698ece43950f85c3f"
+    }
+  },
+  "accepted_arms": [
+    "codex"
+  ],
+  "comparison_status": "undefined",
+  "cleanup": [
+    {
+      "arm": "codex",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "998d209847a3fdcbb7d788f67931d5a93bf33ef9f97ef4799676471844ec40be",
+      "bundle_verified": true,
+      "bundle_sha256": "4e8c782339429b5b2d15bc6bb37fb01a3d6290609e0dc2b51ad4c04c1c0c2c86"
+    },
+    {
+      "arm": "opencode",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "0e4e4022cbcdd6a4590d81547eef70bde2c7b230d9df3e7d0aea2615f043f073",
+      "bundle_verified": true,
+      "bundle_sha256": "4e8c782339429b5b2d15bc6bb37fb01a3d6290609e0dc2b51ad4c04c1c0c2c86"
+    }
+  ],
+  "installed_config_sha256": "1f32d1f56c714e10cabe79fd19aa6e8d90c37d1ce5e1578e37e559c529f33a16",
+  "metrics": {
+    "hybrid_cloud_share": {
+      "value": 0.13928294710150033,
+      "exact": false,
+      "lower_bound": 0.13739768479272918,
+      "upper_bound": 0.15093317027751915,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "cloud_vs_codex": {
+      "value": 0.03066259362061747,
+      "hybrid_cloud": 9887,
+      "codex_cloud": 322445,
+      "lower_bound": 0.03066259362061747,
+      "upper_bound": 0.033683263812433126,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "targets": {
+      "both_arms_accepted": false,
+      "hybrid_cloud_at_most_half_of_codex": false,
+      "hybrid_cloud_share_at_most_0.35": false,
+      "stretch_cloud_share_at_most_0.20": false
+    }
+  },
+  "caveats": [
+    "Unpaid SwiftUI preparation was waiting on simulator diagnostic collection during this round; wall-clock figures are not isolated measurements."
+  ]
+}

@@ -21,21 +21,59 @@ recovery archives and hardware redaction. Frozen fixture solutions remain unchan
 | fixture / round | Codex accepted | Codex cloud (Sol / Luna) | Codex s | Hybrid accepted | Hybrid attributed cloud | Hybrid local | unknown maintenance | Hybrid s |
 |---|---|---|---|---|---|---|---|---|
 | `ttl-python` / 1 | yes | 408,715 (327,394 / 81,321) | 111.662 | **no**: installed shell permission denied the worker check; no review | 15,994 | 49,065 | 965 | 73.356 |
+| `ttl-python` / 2 | yes | 299,678 (239,468 / 60,210) | 60.890 | **no**: check allowed, unrelated worker setup/digest commands denied; no review | 9,940 | 116,416 | 918 | 115.199 |
+| `ttl-python` / 3 | yes | 281,106 (178,954 / 102,152) | 48.134 | **no**: worker wrapped the check with denied `echo`/`tee` commands; no review | 9,839 | 53,379 | 1,093 | 55.625 |
+| `swiftui-list` / 1 | yes | 506,127 (382,852 / 123,275) | 118.045 | **no**: reviewer added denied shell headers/loop; no accepted semantic review | 38,380 | 107,244 | 1,057 | 219.540 |
+| `ttl-python` / 4 | yes | 322,445 (262,011 / 60,434) | 61.685 | **no**: worker piped the check through denied `tee`; no review | 9,887 | 61,098 | 974 | 47.569 |
+| `swiftui-list` / 2 | **no**: usage limit before its final check | 420,920 (277,706 / 143,214) | 98.404 | **no**: usage limit on the first cloud request | unknown | 0 | unknown | 639.375 |
 
-Both Python patches passed all 12 tests in the runner's independent check. Hybrid stopped after the
-permission denial, without its own final verification or authoritative review. It is **rejected**;
-its low spend is not an accepted saving, and the accepted-arm comparison ratio is undefined.
-Hybrid's recorded cloud interval is 15,994–16,959 tokens; the 965 unattributed maintenance tokens
-remain separate. Both checkouts were archived, verified and removed, including ignored artifacts.
-The redacted [round record](m5max-2026-10-28-ttl-01.json) contains hardware, seat counts, check results
-and evidence/archive hashes. Raw run directories and credentials remain outside the repository.
+**Why every Hybrid arm was rejected.** The installed configuration already carried deny-by-default
+shell allowlists on `general` and `review` (`shell *` denied, then `cat`, `git diff*`, `shasum`, …
+allowed) before this audit. Codex runs with full access, so only Hybrid meets them. The local model
+habitually adds `cd … &&`, `2>&1 | tee <log>`, `echo` or `printf` around commands, and each such
+wrapper is denied. The M1 Max rounds below recorded no such denial, so these rounds measure the
+permission policy, not the profile, and are not comparable with them.
 
-`swiftui-list` has **no completed measurement on this Mac**. Two unpaid preparations were stopped:
-the first was superseded by the reviewed profile correction, and the second was stopped while
-authorization for the required worker check remains pending. Xcode had not produced a baseline
-summary. Neither preparation launched a model arm; neither is a pass or a token comparison.
-Their checkouts, partial Xcode logs and build artifacts were archived and verified before removal;
-their run-owned simulators were deleted. No installed permission denial was bypassed.
+Every Python patch passed all 12 tests in the runner's independent check. All five Hybrid arms are
+**rejected**: none reached independent coordinator verification and an authoritative review. Their
+low spend is not an accepted saving, and accepted-arm comparison ratios are undefined. Cloud
+intervals for Python rounds 1–4 are 15,994–16,959, 9,940–10,858, 9,839–10,932 and 9,887–10,861
+tokens; SwiftUI round 1 is 38,380–39,437. Unattributed maintenance stays separate. Every checkout
+was archived, verified and removed, including ignored build artifacts. Redacted records:
+[ttl 1](m5max-2026-10-28-ttl-01.json), [ttl 2](m5max-2026-10-28-ttl-02.json),
+[ttl 3](m5max-2026-10-28-ttl-03.json), [ttl 4](m5max-2026-10-28-ttl-04.json),
+[SwiftUI 1](m5max-2026-10-28-swiftui-01.json) and [SwiftUI 2](m5max-2026-10-28-swiftui-02.json).
+Raw run directories and credentials remain outside the repository.
+
+Permission and prompt history:
+- Before Python round 2 the user authorized two worker allow rules, `./check.sh bench-*` and
+  `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest*`; all pre-existing rules were kept.
+- Python round 3 tested a worker shell-boundary clarification; it failed.
+- Python round 4 tested a stricter worker rule (no `cd`, prefixes, redirects, pipes, chaining or log
+  files); the worker still piped the check through `tee`. The rule did not help and is not in the
+  repository profile.
+- After SwiftUI round 1, the reviewer was told to run only direct `git`, `shasum` and `cat` commands.
+  SwiftUI round 2 never reached the reviewer, so the rule is untested and is not in the repository
+  profile.
+- After the audit the user approved removing every `shell` rule from the installed `general` and
+  `review` agents (all other rules kept, private backup retained) and resyncing their prompts to the
+  repository profile, so later rounds run under the same open shell policy as the M1 Max rounds.
+- Python rounds 2 and 4 overlapped unpaid SwiftUI preparation; their wall-clock values are not
+  isolated performance measurements.
+
+SwiftUI round 2 stopped at the ChatGPT subscription usage limit: Codex after its patch and review,
+before its own final check (exit 1), and Hybrid on its first cloud request (no usage recorded, so its
+cloud spend is unknown, not zero). It is a quota failure, not a measurement of either flow. Its
+Hybrid time is almost entirely the runner's final check of an unchanged checkout, which took 637 s;
+that round's Codex baseline in preparation took 651 s. Other SwiftUI checks on this Mac took 21–69 s,
+so `xcodebuild` UI tests stall intermittently here (testmanagerd/accessibility XPC errors), which
+alone can consume most of the 1,200 s Hybrid budget.
+
+Three unpaid SwiftUI preparations preceded the measured runs: the first was superseded by the
+reviewed profile correction, the second stopped while check-command authorization was pending,
+and the third reproduced the 12-test/five-failure baseline but was superseded by the worker-boundary
+correction. Their checkouts and build/test artifacts were archived and verified before removal;
+their run-owned simulators were deleted. None launched a model arm or counts as a token comparison.
 
 The current runner reports uncertainty intervals and requires their upper bounds to meet token
 targets. Historical attributed-only shares below remain recorded as originally published; excluding

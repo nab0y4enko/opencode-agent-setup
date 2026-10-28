@@ -1,0 +1,208 @@
+{
+  "date": "2026-10-28",
+  "fixture": "swiftui-list",
+  "round": 2,
+  "hardware": {
+    "computer": "Mac Studio",
+    "model_identifier": "Mac17,14",
+    "chip": "Apple M5 Max",
+    "cpu_description": "proc 18:6:12:0",
+    "memory": "128 GB",
+    "gpus": [
+      {
+        "chip": "Apple M5 Max",
+        "cores": 40
+      }
+    ]
+  },
+  "cpu_count": 18,
+  "physical_memory_bytes": 137438953472,
+  "software": {
+    "macos": "27.0.1",
+    "xcode": "27.1 (27A9275)",
+    "codex": "codex-cli 0.165.0",
+    "opencode": "opencode v2.2.0",
+    "omlx": "0.7.3rc1 (3517)"
+  },
+  "local_model": {
+    "served_id": "qwen-3.8-nf-splash",
+    "artifact": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+    "backend": "oMLX external Splash (GGUF)",
+    "context": 262144,
+    "output": 8192
+  },
+  "models": {
+    "codex_cloud": "gpt-6.1-sol",
+    "codex_child": "gpt-6-luna",
+    "opencode_cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/qwen-3.8-nf-splash",
+    "effort": "medium"
+  },
+  "budget": {
+    "wall_clock_seconds_per_arm": 1200,
+    "initial": 1,
+    "repair": 1,
+    "max_workers": 4
+  },
+  "permission_policy": "user-authorized benchmark check rules appended; all previous rules retained; unrelated denials preserved",
+  "arms": {
+    "codex": {
+      "accepted": false,
+      "seats": {
+        "planner": {
+          "uncached_input": 19112,
+          "cached_input": 257152,
+          "output": 1212,
+          "reasoning": 230,
+          "total": 277706,
+          "model": "gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 14969,
+          "cached_input": 127104,
+          "output": 1007,
+          "reasoning": 134,
+          "total": 143214,
+          "model": "gpt-6-luna"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 420920,
+      "cloud_cost_range": null,
+      "unknown_maintenance_tokens": 0,
+      "seconds": 98.404,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [
+        "the client exited 1; a nonzero exit is never an accepted arm",
+        "no substantive semantic PASS verdict (absent); passing tests alone never accept"
+      ],
+      "evidence_seal_sha256": "e99329c28cb81c0514ca3ae13f95dbde238dd5ba5a1a1af4f7cbef71cc478651"
+    },
+    "opencode": {
+      "accepted": false,
+      "seats": {
+        "planner": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": "openai/gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": "omlx/qwen-3.8-nf-splash"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 0,
+      "cloud_cost_range": {
+        "lower_bound": 0,
+        "upper_bound": null,
+        "status": "unknown",
+        "note": "unknown maintenance stays its own number; the exact cloud total and every upper bound are withheld while usage evidence or routing coverage is incomplete"
+      },
+      "unknown_maintenance_tokens": 0,
+      "seconds": 639.375,
+      "tests": {
+        "tests_run": 12,
+        "failures": 5,
+        "errors": 0,
+        "ok": false
+      },
+      "blockers": [
+        "expected at least one general local worker session, found none",
+        "no review subagent session was recorded; the native semantic review is missing",
+        "root Hybrid session <session> has unfinished assistant records (<session>); an incomplete turn is never an accepted arm",
+        "native session <session>:idle_outcome=failed lacks completion evidence; its counted usage is retained, but a session that never went idle or still awaits an answer cannot pass the arm",
+        "recorded routing is not the frozen root/child model and effort",
+        "usage is incomplete; the retained total is a lower bound, not a completion",
+        "the verdict did not come from the authoritative reviewer channel",
+        "check reported 12 tests, 5 failures, 0 errors with exit 1 (expected 12 tests, 0 failures, exit 0)",
+        "the independent check process exited 1; a check that does not exit 0 (including a killed or unstartable check) never accepts",
+        "scope drift: changed=[] untracked=[]",
+        "the client exited 1; a nonzero exit is never an accepted arm",
+        "no substantive semantic PASS verdict (absent); passing tests alone never accept"
+      ],
+      "evidence_seal_sha256": "808508cb25b31135eb95a7e8cbb11004f2f13f68d9d17b91f401e428b98f9609"
+    }
+  },
+  "accepted_arms": [],
+  "comparison_status": "undefined",
+  "cleanup": [
+    {
+      "arm": "codex",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "4aa0c4f1e459c1ca28a38ad7a2f56fbda233784856f82aeab0a8f2b90462d0a9",
+      "bundle_verified": true,
+      "bundle_sha256": "f330a73f4b2d59f8ed8f6236ced2f222ddd6c5493150ddc2d5fb7eea41c4a3d7"
+    },
+    {
+      "arm": "opencode",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "d8e68211938651db2ed945293b66d28487c02c0470fc8d5dfee391f9856b1d79",
+      "bundle_verified": true,
+      "bundle_sha256": "f330a73f4b2d59f8ed8f6236ced2f222ddd6c5493150ddc2d5fb7eea41c4a3d7"
+    }
+  ],
+  "installed_config_sha256": "1f32d1f56c714e10cabe79fd19aa6e8d90c37d1ce5e1578e37e559c529f33a16",
+  "metrics": {
+    "hybrid_cloud_share": {
+      "value": null,
+      "exact": false,
+      "lower_bound": null,
+      "upper_bound": null,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "cloud_vs_codex": {
+      "value": null,
+      "hybrid_cloud": null,
+      "codex_cloud": null,
+      "lower_bound": null,
+      "upper_bound": null,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "targets": {
+      "both_arms_accepted": false,
+      "hybrid_cloud_at_most_half_of_codex": false,
+      "hybrid_cloud_share_at_most_0.35": false,
+      "stretch_cloud_share_at_most_0.20": false
+    }
+  },
+  "caveats": [
+    "Both arms stopped at the ChatGPT subscription usage limit: Codex after its patch and review, before its own final check; Hybrid on its first cloud request. This is a quota failure, not a measurement of either flow."
+  ],
+  "run_label": "swiftui-05",
+  "source_sha256": {
+    "benchmarks/run.py": "8117a7990f9b6c00517e2ecbf47ac64559f4504b8e7d9965b3a2c79e9765027c",
+    "benchmarks/accounting.py": "6d59f036e4bbce37b3e9f978137d26cb171cae7bc66360723c4f2f01e3a1a8b7",
+    "benchmarks/fixtures.py": "c3e6d7da39445e609c31d3cb6065ded79b45aa249e1bfe543b45a12e09878cf3",
+    "benchmarks/hardware.py": "5eacceea94584f14396f331ea4f2068e28c30113af9aa40857d29efcec15c7f2",
+    "config/opencode.json": "9a8b63ed9cdcea214604a047cf09243c5e603ac4984369a5213c24220f9e9689"
+  }
+}
