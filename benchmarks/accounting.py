@@ -693,6 +693,15 @@ def _tool_names(node, acc):
             _tool_names(item, acc)
 
 
+def _permission_denied(node):
+    """Only structured tool errors prove a denial; quoted text is not policy evidence."""
+    if isinstance(node, dict):
+        if node.get('type') == 'tool' and _dig(node, 'state', 'error', 'type') == 'permission.rejected':
+            return True
+        return any(_permission_denied(node[key]) for key in ('content', 'parts', 'tools') if key in node)
+    return isinstance(node, list) and any(_permission_denied(part) for part in node)
+
+
 def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, expected_cloud_model,
                      expected_local_provider, expected_local_model, expected_local_agent='general',
                      expected_review_agent='review', max_local_dispatches=2, client='opencode-cli',
@@ -702,7 +711,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
     totals = {t: dict.fromkeys(fields + ('total',), 0) for t in ('cloud', 'local', 'unknown')}
     sessions_out, requests, blockers = [], [], []
     unexpected_models, missing_usage, invalid_completion = [], [], []
-    pending, variant_mismatch, unknown_fields = [], [], []
+    pending, variant_mismatch, unknown_fields, permission_denials = [], [], [], []
     invalid_usage, duplicate_records, unattributed = [], [], []
     assistant_models, assistant_variants, local_sessions, review_sessions = {}, {}, [], []
     explore_sessions = []
@@ -750,6 +759,10 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
                 continue
             if message.get('type') != 'assistant':
                 continue
+            if _permission_denied(data):
+                permission_denials.append(f'{sid}:{mid}')
+                blockers.append(f'session {sid} message {mid} recorded a permission denial; the arm '
+                                'must stop, even if later checks or review pass; all spend is retained')
             tokens = data.get('tokens') if isinstance(data.get('tokens'), dict) else {}
             absent = [f for f in OPENCODE_REQUIRED_FIELDS if tokens.get(f) is None]
             if absent:
@@ -963,6 +976,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             'assistant_messages_without_model': unattributed,
             'invalid_completion': invalid_completion, 'unaccounted_usage_fields': unknown_fields,
             'variant_mismatch': variant_mismatch, 'unexpected_models': unexpected_models,
+            'permission_denials': permission_denials,
             'routing_ok': not blockers and not unexpected_models, 'blockers': blockers,
             'counting': 'per assistant message fields summed once; the session-aggregate difference stays '
                         'unknown maintenance, never a tier'}

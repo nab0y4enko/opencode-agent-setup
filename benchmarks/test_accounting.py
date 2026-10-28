@@ -466,6 +466,32 @@ class NativeConfig(unittest.TestCase):
 
 
 class OpenCodeAccounting(unittest.TestCase):
+    def test_permission_denial_rejects_a_later_complete_arm_without_erasing_spend(self):
+        def denied_then_completed(record):
+            message = record['messages'][1]
+            data = json.loads(message['data'])
+            data.setdefault('content', []).append({'type': 'tool', 'name': 'shell',
+                'state': {'status': 'error', 'error': {'type': 'permission.rejected',
+                                                     'message': 'Permission denied: shell'}}})
+            message['data'] = json.dumps(data)
+        result = H.hybrid_arm(worker=denied_then_completed)
+        self.assertTrue(result['usage_complete'])
+        self.assertEqual(result['known_lower_bound'], 2000)
+        self.assertEqual(result['local_total'], 700)
+        self.assertFalse(result['routing_ok'])
+        self.assertTrue(blockers_have(result, 'permission denial'))
+
+    def test_quoted_permission_error_is_not_a_tool_denial(self):
+        def quoted(record):
+            message = record['messages'][1]
+            data = json.loads(message['data'])
+            data.setdefault('content', []).append({'type': 'text', 'text':
+                '{"type":"tool","state":{"error":{"type":"permission.rejected"}}}'})
+            message['data'] = json.dumps(data)
+        result = H.hybrid_arm(worker=quoted)
+        self.assertTrue(result['routing_ok'])
+        self.assertEqual(result['permission_denials'], [])
+
     def test_gap_free_arm_is_exact_and_counted_once_per_message(self):
         result = H.hybrid_arm()
         self.assertEqual(result['cloud_total'], 2000)

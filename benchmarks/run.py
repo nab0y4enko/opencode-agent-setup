@@ -16,6 +16,7 @@ import datetime
 import json
 import os
 import platform
+import re
 import shutil
 import signal
 import subprocess
@@ -670,10 +671,18 @@ def codex_expectations(manifest):
     budget = manifest['budget']
     return {'expected_root_model': models['codex_cloud'], 'expected_child_model': models['codex_child'], 'expected_effort': models['effort'], 'max_worker_turns': budget['initial'] + budget['repair'], 'max_workers': budget.get('max_workers', 1)}
 
+_ISO_FRACTION = re.compile(r'(T\d{2}:\d{2}:\d{2})(?:\.(\d+))?')
+
+def parse_utc_stamp(stamp):
+    """Python 3.9 fromisoformat takes only 3 or 6 fractional digits; logs carry any width."""
+    stamp = _ISO_FRACTION.sub(lambda m: m.group(1) + ('.' + (m.group(2) + '000000')[:6] if m.group(2) else ''),
+                              stamp.replace('Z', '+00:00'), count=1)
+    return datetime.datetime.fromisoformat(stamp)
+
 def window_seconds(window):
     try:
-        first = datetime.datetime.fromisoformat(window['first_event'].replace('Z', '+00:00'))
-        last = datetime.datetime.fromisoformat(window['last_event'].replace('Z', '+00:00'))
+        first = parse_utc_stamp(window['first_event'])
+        last = parse_utc_stamp(window['last_event'])
         if first.utcoffset() is None or last.utcoffset() is None:
             return None
         seconds = (last - first).total_seconds()

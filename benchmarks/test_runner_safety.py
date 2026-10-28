@@ -80,6 +80,15 @@ class RecordedWindows(unittest.TestCase):
         self.assertIsNone(R.window_seconds({'first_event': window['last_event'], 'last_event': window['first_event']}))
         self.assertIsNone(R.window_seconds({'first_event': None, 'last_event': None}))
 
+    def test_recorded_window_accepts_any_fraction_width_on_python_39(self):
+        # Python 3.9 fromisoformat accepts only 3 or 6 fractional digits; real logs carry 0-9.
+        window = {'first_event': '2026-10-28T17:25:16.5Z', 'last_event': '2026-10-28T17:26:16.037118123Z'}
+        self.assertEqual(R.window_seconds(window), 59.5)
+        self.assertEqual(R.window_seconds({'first_event': '2026-10-28T17:25:16Z',
+                                           'last_event': '2026-10-28T17:25:36.03711+00:00'}), 20.0)
+        self.assertIsNone(R.window_seconds({'first_event': '2026-10-28T17:25:16.5',
+                                            'last_event': '2026-10-28T17:26:16Z'}))
+
 class RetainedEvidence(unittest.TestCase):
     def test_an_empty_or_partial_seal_cannot_verify_unsealed_decision_artifacts(self):
         with tempfile.TemporaryDirectory() as raw:
