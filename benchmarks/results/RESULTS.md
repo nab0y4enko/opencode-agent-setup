@@ -4,6 +4,43 @@ Every paid round is listed, failed ones included. "Cloud" is all cloud tokens of
 Sol + Luna; Hybrid: Sol coordinator + reviewer). Cached input is counted inside cloud tokens and
 shown separately in each round's `REPORT.md`. Raw tokens are not prices or quota.
 
+## Mac Studio M5 Max: current settings, Hybrid only (2026-10-28)
+
+**Accepted: 1/1 Hybrid run** on the current user-updated settings and unchanged benchmark at
+`383bd4971b09b52060e16b8a2ac6dc82aba14e01`. The permission gate passed without warnings or
+denials. Only Hybrid launched a model arm; Codex was deliberately not attempted.
+
+Hardware: **Mac Studio, Apple M5 Max, 18 CPU cores, 40 GPU cores, 128 GB unified memory**.
+Software: macOS 27.0.1, Xcode 27.1 (27A9275), OpenCode 2.2.0 and oMLX 0.7.3rc1 (3517).
+Cloud coordinator/reviewer: GPT-6.1 Sol medium. Local model: `qwen-3.8-nf-splash`
+(`Qwen3.8-Flash-Next-UD-Q4_K_XL`, oMLX external Splash/GGUF, context 262,144, output 8,192).
+The installed profile and benchmark source remained unchanged throughout the run.
+
+| Fixture | Hybrid accepted | Independent final suite | Measured seconds | Attributed cloud | Local | Unattributed maintenance |
+|---|---|---|---|---|---|---|
+| `swiftui-list` | **yes** | 12/12 passed, zero failed/skipped | 214.520 | 43,069 | 157,188 | 1,029 |
+
+The worker and coordinator also each passed all 12 tests. The authoritative cloud reviewer returned
+`PASS` bound to the exact complete-diff digest; the runner independently verified scope, frozen
+inputs, config integrity, routing, usage, completion and the 1,200-second budget. No fixture was
+changed in this repository.
+
+Cloud tokens are bounded at **43,069–44,098**. Cloud share is **21.40–21.91%**, retaining the
+1,029 tokens of unattributed maintenance. This interval is below 35% and above the 20% stretch
+threshold. The runner's paired comparison targets remain undefined without Codex: this single
+Hybrid run establishes neither a same-round saving against Codex nor a 3/3 reliability result.
+
+The unchanged preparation ran both frozen baselines (12 tests, five intentional failures each) and
+two local-only permission probes. Baseline checks took 687.873 and 655.283 seconds because Xcode
+waited for simulator diagnostic collection; preparation and probes are outside the measured
+Hybrid arm. Its independent final check took 21.264 seconds. No Codex model was called.
+
+All arm checkouts, ignored build/test artifacts and probe repositories were archived, verified and
+removed; all run-owned simulators were deleted. Raw evidence remains outside the repository.
+The redacted [Hybrid-only record](m5max-2026-10-28-hybrid-only-01.json) includes hardware,
+source/config digests, token seats, acceptance gates and verified archive hashes. All 173 offline
+regression tests passed before this run.
+
 ## Mac Studio M5 Max audit (2026-10-28)
 
 Hardware: **Mac Studio, Apple M5 Max, 18 CPU cores, 40 GPU cores, 128 GB unified memory**.

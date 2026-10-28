@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-28",
+  "software": {
+    "macos": "27.0.1",
+    "xcode": "27.1 (27A9275)",
+    "codex": "codex-cli 0.165.0",
+    "opencode": "opencode v2.2.0",
+    "omlx": "0.7.3rc1 (3517)"
+  },
+  "local_model": {
+    "served_id": "qwen-3.8-nf-splash",
+    "artifact": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+    "backend": "oMLX external Splash (GGUF)",
+    "context": 262144,
+    "output": 8192
+  },
+  "fixture": "swiftui-list",
+  "measurement": "Hybrid only",
+  "round": 1,
+  "hardware": {
+    "computer": "Mac Studio",
+    "model_identifier": "Mac17,14",
+    "chip": "Apple M5 Max",
+    "cpu_description": "proc 18:6:12:0",
+    "memory": "128 GB",
+    "gpus": [
+      {
+        "chip": "Apple M5 Max",
+        "cores": 40
+      }
+    ]
+  },
+  "cpu_count": 18,
+  "physical_memory_bytes": 137438953472,
+  "models": {
+    "cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/qwen-3.8-nf-splash",
+    "effort": "medium"
+  },
+  "budget": {
+    "wall_clock_seconds_per_arm": 1200,
+    "initial": 1,
+    "repair": 1,
+    "max_workers": 4
+  },
+  "installed_config_sha256": "d2f2cb119caabfdb50c5e5b5ea0ffa3db88fdfae48410664923fb4cb7a8bb8f1",
+  "permission_policy": "Current user-updated native settings; unrestricted shell on general and review; all other role boundaries preserved. No benchmark permission bypass.",
+  "execution_selection": [
+    "opencode"
+  ],
+  "codex_attempted": false,
+  "accepted_arms": [
+    "opencode"
+  ],
+  "permission_gate": {
+    "status": "passed",
+    "warnings": [],
+    "local_probe_roles": [
+      "general",
+      "review"
+    ]
+  },
+  "source": {
+    "git_head": "383bd4971b09b52060e16b8a2ac6dc82aba14e01",
+    "source_sha256": {
+      "benchmarks/run.py": "69f003ae83b021a08e97fbe50bba10e88f7d79fa87565f0983c43f2b87ae331f",
+      "benchmarks/accounting.py": "6d59f036e4bbce37b3e9f978137d26cb171cae7bc66360723c4f2f01e3a1a8b7",
+      "benchmarks/permissions.py": "478933e1fe8fced7a061ab6b53beb3e058dc711c439d722495a1299dfcb04ae4",
+      "benchmarks/hardware.py": "5eacceea94584f14396f331ea4f2068e28c30113af9aa40857d29efcec15c7f2",
+      "benchmarks/fixtures.py": "c3e6d7da39445e609c31d3cb6065ded79b45aa249e1bfe543b45a12e09878cf3",
+      "config/opencode.json": "d1efce37a19768b4bf5a3b4962419789f920cc1446929e67fabbb66362b2aef7"
+    },
+    "selection": "Hybrid only; existing unchanged runner functions, external selection harness",
+    "selector_sha256": "1035be8fcf901fcd672d37309ba20e757ce83a9dfd43b94a7d76c019bfc42565"
+  },
+  "arms": {
+    "opencode": {
+      "accepted": true,
+      "gates": {
+        "tests_all_and_pass": true,
+        "check_exit_clean": true,
+        "scope_only_allowed_paths": true,
+        "frozen_test_and_readme_intact": true,
+        "frozen_base_commit_intact": true,
+        "no_untracked_source": true,
+        "semantic_verdict_pass": true,
+        "verdict_bound_to_current_digest": true,
+        "verdict_from_authoritative_reviewer": true,
+        "routing_expected": true,
+        "usage_complete": true,
+        "within_deadline": true,
+        "within_total_budget": true,
+        "clean_exit": true,
+        "native_permissions_not_bypassed": true,
+        "retained_evidence_verified": true
+      },
+      "seats": {
+        "planner": {
+          "uncached_input": 18624,
+          "cached_input": 22656,
+          "output": 1775,
+          "reasoning": 14,
+          "total": 43069,
+          "model": "openai/gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 19426,
+          "cached_input": 130784,
+          "output": 3570,
+          "reasoning": 3408,
+          "total": 157188,
+          "model": "omlx/qwen-3.8-nf-splash"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "known_cloud_lower_bound": 43069,
+      "cloud_cost_range": {
+        "lower_bound": 43069,
+        "upper_bound": 44098,
+        "status": "cloud_exact_unknown",
+        "note": "unknown maintenance stays its own number; the exact cloud total and every upper bound are withheld while usage evidence or routing coverage is incomplete"
+      },
+      "unknown_maintenance_tokens": 1029,
+      "seconds": 214.52,
+      "tests": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "ok": true
+      },
+      "blockers": [],
+      "evidence_seal_sha256": "880259b1deab2456dfab101ae4b930b6d65b70d579bbf6e709bfdbd8b44713dd"
+    }
+  },
+  "baseline_seconds": {
+    "codex": 687.873,
+    "opencode": 655.283
+  },
+  "metrics": {
+    "hybrid_cloud_share": {
+      "value": 0.2150686368017098,
+      "exact": false,
+      "lower_bound": 0.2139691781842751,
+      "upper_bound": 0.21908130719473784,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "cloud_vs_codex": {
+      "value": null,
+      "hybrid_cloud": null,
+      "codex_cloud": null,
+      "lower_bound": null,
+      "upper_bound": null,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "comparison_status": "undefined"
+  },
+  "cleanup": [
+    {
+      "arm": "codex",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "dd0eb7679221119e9c7bf73024dd1b16f62628a05db46e6614ff6d28d556ec36",
+      "bundle_verified": true,
+      "bundle_sha256": "31dd0c430c873f01a8a0ebb39b8fc9c5f8300935a1409c937423a5bea33dec44"
+    },
+    {
+      "arm": "opencode",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "1ebacb6ca93455a27c208125486e79700b15c4a93cc35c0956226b559370e424",
+      "bundle_verified": true,
+      "bundle_sha256": "31dd0c430c873f01a8a0ebb39b8fc9c5f8300935a1409c937423a5bea33dec44"
+    }
+  ],
+  "probe_cleanup": [
+    {
+      "role": "general",
+      "status": "archived_and_removed",
+      "files_verified": 28,
+      "archive_sha256": "4f1c0265c103396972b34b2a0308c649d9fc9567b357b5279a51a138c2e61624"
+    },
+    {
+      "role": "review",
+      "status": "archived_and_removed",
+      "files_verified": 28,
+      "archive_sha256": "74d9fb64c180b0ba4239e3fe194036570c4191d9aa7142cde6d063a816145a48"
+    }
+  ],
+  "caveats": [
+    "One Hybrid-only round cannot establish a 3/3 reliability result or a same-round saving against Codex.",
+    "The unchanged two-arm preparation ran both frozen baselines and local-only permission probes; only the Hybrid model arm was executed.",
+    "Both baselines encountered Xcode simulator diagnostic collection delays, outside measured Hybrid execution.",
+    "Cloud-share bounds retain unattributed maintenance; raw tokens are not prices or quota."
+  ]
+}
