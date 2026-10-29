@@ -7,6 +7,13 @@ on a small SwiftUI app.
 Everything — the idea, the profile, installation, the benchmark and its results — is in
 [AGENTS.md](AGENTS.md).
 
+Set up a Mac for daily work (OpenCode 2 and oMLX already installed):
+
+```sh
+python3 install.py --key-file <file with the oMLX key>
+opencode auth login
+```
+
 ```sh
 python3 -B -m unittest discover -s benchmarks -p 'test_*.py'
 python3 benchmarks/run.py --help
@@ -39,8 +46,8 @@ Hybrid ÷ Codex cloud below 0.5 means the hybrid flow at least halves cloud toke
 
 ### Adding a machine
 
-1. Install the profile and sidecars as in [AGENTS.md](AGENTS.md), with that machine's real local
-   limits, and run the offline suite.
+1. Install the profile with `python3 install.py` (it reads that machine's served limits) and run
+   the offline suite.
 2. Run three or more rounds into separate folders (`swiftui-01`, `swiftui-02`, …), each a
    `run … --fixture swiftui-list` prepare followed by the same command with `--live`, using a
    distinct `--label`.

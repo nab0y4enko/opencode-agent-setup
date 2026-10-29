@@ -11,7 +11,8 @@ oMLX, inside native OpenCode 2:
   check summary, one review of the exact diff.
 - **Local (oMLX):** reading, searching, editing, building, testing.
 
-Reliable orchestration matters more than speed. The goal is a Hybrid session whose cloud share is
+The profile is for real daily work; `install.py` sets up a new Mac with it, and the benchmark
+measures what it costs. Reliable orchestration matters more than speed. The goal is a Hybrid session whose cloud share is
 small: ≤ 0.35 is the target, ≤ 0.20 the dream. Absolute cloud tokens must fall against the Codex
 flow too, so a share bought by local waste does not count.
 
@@ -21,13 +22,13 @@ Native OpenCode 2 configuration only: no plugin, no controller. `default_agent` 
 model picker in the TUI chooses the cloud model, and switching it (e.g. to Astra or Opus for a hard
 task) changes planning and review.
 
-| agent | model | job | boundary |
-|---|---|---|---|
-| `hybrid` | inherited (cloud) | plans, writes 1–4 contracts, runs the final check, asks one review | cannot edit; may call only `general`, `explore`, `review` |
-| `general` | local | implements one contract, runs its check once, returns a ≤120-word receipt | unrestricted shell; no subagents, no skills |
-| `explore` | local | answers one lookup question (OpenCode's built-in prompt) | no skills |
-| `review` | inherited (cloud) | reviews the exact diff, ends with `VERDICT: PASS|CHANGES_REQUIRED <sha256>` | unrestricted shell; cannot edit, no skills |
-| `title`, `summary` | local | session housekeeping | — |
+| agent | model | job | steps | boundary |
+|---|---|---|---|---|
+| `hybrid` | inherited (cloud) | plans, writes 1–4 contracts with exact symbols or line ranges, up to two repairs per worker, runs the final check, asks a review and after `CHANGES_REQUIRED` one more | 100 | cannot edit; may call only `general`, `explore`, `review` |
+| `general` | local | implements one contract and the tests or specs it names, fixes its own build and test failures (up to three check runs), returns a ≤120-word receipt | 200 | unrestricted shell; no subagents; never weakens an assertion |
+| `explore` | local | answers lookup questions (OpenCode's built-in prompt) | 50 | no skills |
+| `review` | inherited (cloud) | reviews the exact diff, ends with `VERDICT: PASS|CHANGES_REQUIRED <sha256>` | 30 | unrestricted shell; cannot edit, no skills |
+| `title`, `summary` | local | session housekeeping | — | — |
 
 Facts that shape the prompts (OpenCode 2.1.4):
 - An agent's `system` text replaces OpenCode's base prompt and the GPT-tuned provider prompt.
@@ -38,27 +39,33 @@ Facts that shape the prompts (OpenCode 2.1.4):
 
 ### Install on a Mac
 
-1. Merge `config/opencode.json` into `~/.config/opencode/opencode.json`, preserving existing
-   providers, models and the selected cloud model. Do not replace the whole installed
-   configuration. Remove any `shell` rule that restricts `hybrid`, `general` or `review` (see
-   *Permissions* below); keep every other custom rule.
-2. Next to it, place three sidecars:
-   - `local-model.txt`: the served model ID;
-   - `omlx-url.txt`: e.g. `http://127.0.0.1:8000/v1`;
-   - `omlx.key`: one line, the oMLX API key. Never commit it.
-3. Set `limit.context` and `limit.output` to that Mac's real local limits. The profile assumes
-   32,768 and 8,192.
-4. Log in to the cloud provider in OpenCode (`opencode auth login`).
-5. Inspect the effective roles with `opencode debug agents --standalone`. Confirm `general` and
-   `explore` use the served local model and `hybrid` and `review` inherit the selected cloud model.
+Prerequisites: OpenCode 2 on `PATH`, oMLX serving the local model, and its API key.
+
+```sh
+python3 install.py --key-file <file with the oMLX key>     # later runs reuse the installed omlx.key
+python3 install.py --dry-run                               # the redacted change, nothing written
+opencode auth login                                        # once per Mac, for the cloud provider
+```
+
+`install.py` merges the profile into `~/.config/opencode/opencode.json` and keeps the previous file
+as `opencode.json.bak-<time>`. It keeps other providers, other agents, the selected cloud model and
+custom permission rules (before the profile's, so the role boundaries win); it drops any `shell`
+restriction on `hybrid`, `general` or `review` (see *Permissions*), a model pinned on `hybrid` or
+`review`, and rules earlier profile versions installed. It writes the sidecars `local-model.txt`
+(`--model`, else the installed or only served model), `omlx-url.txt` (`--url`, default
+`http://127.0.0.1:8000/v1`) and `omlx.key` (mode 600, never printed, never committed). Context is the
+served model length and output a quarter of it, at most 32,768, unless `--context`/`--output` say
+otherwise. Last it runs `opencode debug agents --standalone` and exits non-zero unless `general` and
+`explore` use the local model, `hybrid` and `review` inherit the cloud model, every step limit
+matches and the three shell roles may run a wrapped command. Rerun it after changing the profile.
 
 ### Permissions
 
 The benchmark needs unrestricted shell for `hybrid`, `general` and `review`, as Codex has full
 access. The local model wraps commands unasked (`cd … &&`, `2>&1 | tee <log>`, `printf`, `echo`),
 and OpenCode checks each pipeline part, so any deny-by-default allowlist rejects the Hybrid arm.
-The role boundaries in the table (no edits for `hybrid` and `review`, no subagents or skills for
-workers) are part of the measured design and stay.
+The role boundaries in the table (no edits for `hybrid` and `review`, no subagents for workers) are
+part of the measured design and stay.
 
 `prepare` enforces this before any baseline and before any cloud token:
 1. It reads the effective rules with `opencode debug agents --standalone` inside the Hybrid
@@ -130,11 +137,15 @@ Results of every paid round: `benchmarks/results/RESULTS.md`.
 - Hybrid is slower: 9–15 minutes, against about 2 minutes for Codex.
 - The main reliability lever was check output a repair can act on: compiler errors, not just
   `TESTS total=0`.
+- That profile had 30/40/16/12 steps, an 8,192-token local output limit and workers that ran their
+  check once. The current real-work profile has not been benchmarked yet. A round still allows each
+  worker one repair and one review, because the frozen task prompt and the accounting say so.
 
 ## Repository map
 
 ```
 AGENTS.md                 this document
+install.py                installs the profile and sidecars on this Mac and verifies the roles
 config/                   the OpenCode profile and sidecar examples
 benchmarks/run.py         CLI: prepare, run, finish (Codex App import, ttl-python only), report, compare
 benchmarks/accounting.py  usage, routing and verdict accounting (offline)
@@ -142,7 +153,7 @@ benchmarks/permissions.py permission gate: effective OpenCode rules and the loca
 benchmarks/hardware.py    privacy-safe hardware facts for reports
 benchmarks/fixtures.py    fixture registry
 benchmarks/fixtures/      frozen benchmark repositories
-benchmarks/test_*.py      offline tests: fake clients, temporary databases, no paid calls
+benchmarks/test_*.py      offline tests (installer included): fakes and temporary files, no paid calls
 benchmarks/results/       RESULTS.md and redacted summaries of final rounds
 ```
 
@@ -152,8 +163,9 @@ benchmarks/results/       RESULTS.md and redacted summaries of final rounds
   that fails first.
 - Never weaken an accounting, evidence or acceptance check to make a run pass.
 - Python standard library only, Python 3.9 compatible; no machine-specific paths in code or tests.
-- Keep the profile prompts short and structured: role, inputs, steps, limits, exact reply. Change one
-  rule at a time and keep it only if the benchmark shows it helps.
+- Keep the profile prompts short and structured: role, inputs, steps, limits, exact reply. The
+  profile serves real work; after changing it, rerun `install.py` and record a benchmark round to
+  see what it costs.
 - No plan, design or scratch documents in the tree; this file is the documentation.
 - Published results are redacted: no account identifiers, keys or private skill text. Raw run
   directories stay outside the repository.
