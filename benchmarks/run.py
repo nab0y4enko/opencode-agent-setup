@@ -29,6 +29,7 @@ import accounting as A
 import fixtures as FX
 import hardware
 import permissions as P
+from review_manifest import canonical_manifest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_FIXTURE = 'ttl-python'
 DEFAULT_CLOUD_CODEX = 'gpt-6.1-sol'
@@ -663,7 +664,8 @@ def scope_and_digest(repo, manifest, arm):
         head = None
     base_intact = bool(base) and head == base
     scope_ok = not untracked and bool(changed) and (set(changed) <= set(manifest['allowed_changed'])) and frozen_intact and base_intact
-    return {'changed': changed, 'untracked': untracked, 'digest': A.sha256_bytes(diff), 'diff_bytes': len(diff), 'frozen_files_intact': frozen_ok, 'frozen_intact': frozen_intact, 'frozen_base_commit': base, 'head_commit': head, 'base_intact': base_intact, 'scope_ok': scope_ok}
+    return {'changed': changed, 'untracked': untracked, 'digest': A.sha256_bytes(diff), 'diff_bytes': len(diff), 'frozen_files_intact': frozen_ok, 'frozen_intact': frozen_intact, 'frozen_base_commit': base, 'head_commit': head, 'base_intact': base_intact, 'scope_ok': scope_ok,
+            'canonical': canonical_manifest(repo, base or 'HEAD')}
 
 def assistant_texts_from_records(records, agent):
     texts = []
@@ -992,7 +994,8 @@ def run_codex_arm(out, manifest, client='codex-cli', root_id=None):
 def opencode_expectations(manifest):
     models = manifest['models']
     cloud = models['opencode_cloud'].split('/', 1)
-    return {'expected_cloud_provider': cloud[0], 'expected_cloud_model': cloud[1].split('#')[0], 'expected_local_provider': models['local'].split('/', 1)[0], 'expected_local_model': models['local']}
+    return {'expected_cloud_provider': cloud[0], 'expected_cloud_model': cloud[1].split('#')[0], 'expected_local_provider': models['local'].split('/', 1)[0], 'expected_local_model': models['local'],
+            'expected_compaction_model': (((manifest.get('native_config') or {}).get('snapshot') or {}).get('agents') or {}).get('compaction', {}).get('model')}
 
 def finish_opencode_arm(out, manifest, execution, snapshot, root_ids, client='opencode-cli', remaining=120, arm_start=None):
     arm = 'opencode'
@@ -1115,7 +1118,18 @@ def seat_metrics(arms):
                'hybrid_cloud_at_most_half_of_codex': bool(both_accepted and ratio['upper_bound'] is not None and ratio['upper_bound'] <= TARGETS['cloud_vs_codex']),
                'hybrid_cloud_share_at_most_0.35': bool(both_accepted and share['upper_bound'] is not None and share['upper_bound'] <= TARGETS['share']),
                'stretch_cloud_share_at_most_0.20': bool(both_accepted and share['upper_bound'] is not None and share['upper_bound'] <= TARGETS['stretch_share'])}
-    return {'seats': seats, 'hybrid_cloud_share': share, 'cloud_vs_codex': ratio, 'targets': targets,
+    absolute = {}
+    for arm, seat in seats.items():
+        if not seat or not usable.get(arm):
+            absolute[arm] = None
+            continue
+        cloud_seats = ('planner', 'worker') if arm == 'codex' else ('planner',)
+        absolute[arm] = {}
+        for key in ('uncached_input', 'cached_input', 'output', 'reasoning', 'total'):
+            values = [A.as_counter(seat[role].get(key)) for role in cloud_seats]
+            # Earlier retained seat summaries can have totals without the full breakdown.
+            absolute[arm][key] = sum(values) if all(v is not None for v in values) else None
+    return {'absolute_cloud': absolute, 'seats': seats, 'hybrid_cloud_share': share, 'cloud_vs_codex': ratio, 'targets': targets,
             'note': 'targets require both arms accepted and the entire uncertainty interval within threshold; value is an attributed-only estimate; figures are withheld while usage is incomplete or unattributed'}
 
 def archive_and_cleanup(out, manifest, arm):
@@ -1315,12 +1329,12 @@ def render_markdown(report):
     lines = [f"# Benchmark report `{report['out']}`", '', f"* protocol `{report['protocol']}`, generated {report['generated_utc']}, measurement kind `{report['measurement_kind']}`", f"* machine `{machine['label']}` — {machine['platform']}, python {machine['python']}, git {machine['git']}, codex {machine['codex']}, opencode {machine['opencode']}, RAM {machine['physical_memory_bytes']} bytes", f"* models `{json.dumps(report['models'])}`", f"* budget `{json.dumps(report['budget'])}` per arm (1 initial + 1 repair)", f"* accepted arms: {', '.join(report['accepted_arms']) or 'none'}", '']
     if machine.get('hardware'):
         lines += [f"* hardware `{json.dumps(machine['hardware'])}`", '']
-    header = ('arm', 'client', 'accepted', 'cloud', 'cloud>=lower', 'local', 'unknown maint', 'seconds', 'tests', 'exit/timeout', 'failed gates')
+    header = ('arm', 'client', 'accepted', 'cloud', 'cloud>=lower', 'local', 'unknown maint', 'model seconds', 'total seconds', 'tests', 'exit/timeout', 'failed gates')
     lines += ['| ' + ' | '.join(header) + ' |', '|' + '---|' * len(header)]
     for (arm, result) in sorted(report['arms'].items()):
         (check, execution) = (result.get('check') or {}, result.get('execution') or {})
         failed = [name for (name, ok) in (result.get('gates') or {}).items() if not ok]
-        lines.append('| ' + ' | '.join((str(v) for v in (arm, result.get('client'), result.get('accepted'), result.get('cloud_tokens'), result.get('cloud_tokens_lower_bound'), result.get('local_tokens'), result.get('unknown_maintenance'), execution.get('seconds'), f"{check.get('tests_run')}T/{check.get('failures')}F/{check.get('errors')}E", f"{execution.get('exit_code')}/{execution.get('timed_out')}", ', '.join(failed) or 'none'))) + ' |')
+        lines.append('| ' + ' | '.join((str(v) for v in (arm, result.get('client'), result.get('accepted'), result.get('cloud_tokens'), result.get('cloud_tokens_lower_bound'), result.get('local_tokens'), result.get('unknown_maintenance'), execution.get('seconds'), execution.get('total_seconds'), f"{check.get('tests_run')}T/{check.get('failures')}F/{check.get('errors')}E", f"{execution.get('exit_code')}/{execution.get('timed_out')}", ', '.join(failed) or 'none'))) + ' |')
     metrics = report['metrics']
     lines += ['', '## Tokens by seat', '', '| arm | seat | model | uncached input | cached input | output | reasoning | total |', '|---|---|---|---|---|---|---|---|']
     for (arm, seats) in sorted((metrics.get('seats') or {}).items()):
@@ -1328,6 +1342,16 @@ def render_markdown(report):
             usage = (seats or {}).get(seat)
             if usage and (seat != 'unknown' or usage.get('total')):
                 lines.append(f"| {arm} | {seat} | {usage.get('model') or 'unattributed'} | " + ' | '.join(str(usage.get(key)) for key in ('uncached_input', 'cached_input', 'output', 'reasoning', 'total')) + ' |')
+    lines += ['', '## Recorded compaction spend', '',
+              'Known recorded counters, included above by request model; incomplete records remain lower bounds. Unexplained aggregate gaps remain separate maintenance.', '',
+              '| arm | tier | uncached input | cached input | output | reasoning | total |',
+              '|---|---|---|---|---|---|---|']
+    for arm, result in sorted(report['arms'].items()):
+        verified = (result.get('evidence') or {}).get('verified', True)
+        for tier, usage in sorted(((result.get('accounting') or {}).get('compaction') or {}).items()):
+            values = [usage.get(key) if verified else None for key in ('uncached_input', 'cached_input', 'output', 'reasoning', 'total')]
+            lines.append('| ' + ' | '.join(str(v) for v in [arm, tier] + values) + ' |')
+    lines += ['', 'A lower cloud share caused by inflated cached local traffic does not prove savings. Compare absolute cloud counters and matched accepted tasks; elapsed time and acceptance are separate outcomes.']
     share, ratio = metrics.get('hybrid_cloud_share') or {}, metrics.get('cloud_vs_codex') or {}
     fmt = lambda value: 'n/a' if value is None else f'{value:.3f}'
     lines += ['', f"* Hybrid cloud share (attributed requests): {fmt(share.get('value'))}; full interval [{fmt(share.get('lower_bound'))}, {fmt(share.get('upper_bound'))}]",

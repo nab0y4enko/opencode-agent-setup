@@ -466,6 +466,134 @@ class NativeConfig(unittest.TestCase):
 
 
 class OpenCodeAccounting(unittest.TestCase):
+    def maintenance(self, kind='compaction', **over):
+        recs = H.arm_records()
+        rec = recs[1]
+        data = {'type': kind, 'status': 'completed', 'model': {'providerID': H.CLOUD,
+                'id': H.CLOUD_MODEL}, 'tokens': {'input': 40, 'output': 10}, **over}
+        rec['messages'].append({'id': 'maintenance', 'type': kind, 'data': json.dumps(data)})
+        H.set_native(rec, input=540, output=210)
+        return H.hybrid_arm(recs)
+
+    def test_compaction_is_counted_by_its_recorded_model_without_invented_effort(self):
+        result = self.maintenance()
+        self.assertEqual(result['known_lower_bound'], 2050)
+        self.assertEqual(result['unknown_maintenance_total'], 0)
+        self.assertEqual(result['compaction']['cloud']['total'], 50)
+        request = result['requests'][-2]
+        self.assertEqual((request['kind'], request['variant']), ('compaction', None))
+        self.assertEqual(result['seats']['planner']['total'], 2050)
+        self.assertFalse(result['routing_ok'])  # cloud compaction in a local worker
+        self.assertTrue(blockers_have(result, 'maintenance routing'))
+
+    def test_non_assistant_usage_and_failed_compaction_spend_are_retained(self):
+        result = self.maintenance('summary', status='failed')
+        self.assertEqual(result['known_lower_bound'], 2050)
+        self.assertFalse(result['usage_complete'])
+        self.assertIsNone(result['cloud_total'])
+        result = self.maintenance(status='failed', model=None)
+        self.assertEqual(result['unknown_usage_total'], 50)
+        self.assertFalse(result['usage_complete'])
+        self.assertIsNone(result['cloud_cost_range']['upper_bound'])
+
+    def test_compaction_missing_usage_is_unknown_even_with_no_aggregate_gap(self):
+        result = self.maintenance(tokens=None)
+        self.assertFalse(result['usage_complete'])
+        self.assertTrue(any('maintenance:input,output' in m for m in result['missing_usage_fields']))
+        self.assertEqual(result['unknown_maintenance_total'], 50)
+
+    def test_local_compaction_does_not_supply_missing_normal_worker_execution(self):
+        recs = H.arm_records()
+        recs[1]['messages'][1]['type'] = 'compaction'
+        data = json.loads(recs[1]['messages'][1]['data'])
+        data.pop('finish')
+        data['status'] = 'completed'
+        recs[1]['messages'][1]['data'] = json.dumps(data)
+        result = H.hybrid_arm(recs)
+        self.assertEqual(result['local_total'], 700)
+        self.assertFalse(result['routing_ok'])
+        self.assertTrue(blockers_have(result, 'no assistant model'))
+
+    def test_duplicate_compaction_is_counted_once_and_rejected(self):
+        recs = H.arm_records()
+        msg = {'id': 'compact', 'type': 'compaction', 'data': json.dumps({'status': 'completed',
+               'model': {'providerID': H.LOCAL, 'id': H.LOCAL_MODEL},
+               'tokens': {'input': 40, 'output': 10}})}
+        recs[1]['messages'].extend([msg, msg])
+        H.set_native(recs[1], input=540, output=210)
+        result = H.hybrid_arm(recs)
+        self.assertEqual(result['local_total'], 750)
+        self.assertFalse(result['usage_complete'])
+        self.assertEqual(result['duplicate_records'], [H.CHILD + ':compact'])
+
+    def test_missing_request_identity_withholds_exact_usage(self):
+        recs = H.arm_records()
+        recs[0]['messages'][1].pop('id')
+        result = H.hybrid_arm(recs)
+        self.assertFalse(result['usage_complete'])
+        self.assertEqual(result['known_lower_bound'], 2000)
+        self.assertTrue(blockers_have(result, 'request identity'))
+
+    def test_native_local_compaction_role_does_not_override_normal_cloud_routing(self):
+        recs = H.arm_records()
+        recs[0]['messages'].append({'id': 'compact', 'type': 'compaction', 'data': json.dumps({
+            'status': 'completed', 'model': {'providerID': H.LOCAL, 'id': H.LOCAL_MODEL},
+            'tokens': {'input': 40, 'output': 10}})})
+        H.set_native(recs[0], input=940, output=310)
+        result = A.account_opencode({'records': recs}, root_session_ids=[H.ROOT],
+                  expected_compaction_model=H.LOCAL_QUALIFIED, **H.OC_KW)
+        self.assertTrue(result['routing_ok'], result['blockers'])
+        self.assertEqual(result['compaction']['local']['total'], 50)
+        self.assertEqual(result['cloud_total'], 2000)
+        data = json.loads(recs[0]['messages'][1]['data'])
+        data['model'] = {'providerID': H.LOCAL, 'id': H.LOCAL_MODEL}
+        recs[0]['messages'][1]['data'] = json.dumps(data)
+        result = A.account_opencode({'records': recs}, root_session_ids=[H.ROOT],
+                  expected_compaction_model=H.LOCAL_QUALIFIED, **H.OC_KW)
+        self.assertFalse(result['routing_ok'])
+
+    def test_duplicate_request_id_across_sessions_cannot_be_counted_twice(self):
+        recs = H.arm_records()
+        recs[1]['messages'][1]['id'] = recs[0]['messages'][1]['id']
+        result = H.hybrid_arm(recs)
+        self.assertEqual(result['local_total'], 0)
+        self.assertFalse(result['usage_complete'])
+        self.assertTrue(result['duplicate_records'])
+
+    def test_cloud_compaction_effort_is_never_assumed(self):
+        recs = H.arm_records()
+        data = {'status': 'completed', 'model': {'providerID': H.CLOUD, 'id': H.CLOUD_MODEL},
+                'tokens': {'input': 40, 'output': 10}}
+        recs[0]['messages'].append({'id': 'compact', 'type': 'compaction', 'data': json.dumps(data)})
+        H.set_native(recs[0], input=940, output=310)
+        result = H.hybrid_arm(recs)
+        self.assertFalse(result['routing_ok'])
+        self.assertTrue(result['variant_mismatch'])
+        self.assertEqual(result['known_lower_bound'], 2050)
+        data['model']['variant'] = 'medium'
+        recs[0]['messages'][-1]['data'] = json.dumps(data)
+        result = A.account_opencode({'records': recs}, root_session_ids=[H.ROOT],
+                  expected_compaction_model=H.CLOUD + '/' + H.CLOUD_MODEL + '#medium', **H.OC_KW)
+        self.assertTrue(result['routing_ok'], result['blockers'])
+
+    def test_native_compaction_bypasses_summary_override_but_keeps_session_routing(self):
+        recs = H.arm_records()
+        data = {'status': 'completed', 'model': {'providerID': H.CLOUD, 'id': H.CLOUD_MODEL,
+                'variant': 'medium'}, 'native': {'messages': [{'role': 'assistant', 'content': []}]},
+                'tokens': {'input': 40, 'output': 10}}
+        recs[0]['messages'].append({'id': 'native', 'type': 'compaction', 'data': json.dumps(data)})
+        H.set_native(recs[0], input=940, output=310)
+        result = A.account_opencode({'records': recs}, root_session_ids=[H.ROOT],
+                  expected_compaction_model=H.LOCAL_QUALIFIED, **H.OC_KW)
+        self.assertTrue(result['routing_ok'], result['blockers'])
+        self.assertEqual(result['compaction']['cloud']['total'], 50)
+        self.assertEqual(result['known_lower_bound'], 2050)
+        data['model'] = {'providerID': H.LOCAL, 'id': H.LOCAL_MODEL}
+        recs[0]['messages'][-1]['data'] = json.dumps(data)
+        result = A.account_opencode({'records': recs}, root_session_ids=[H.ROOT],
+                  expected_compaction_model=H.LOCAL_QUALIFIED, **H.OC_KW)
+        self.assertFalse(result['routing_ok'])
+
     def test_permission_denial_rejects_a_later_complete_arm_without_erasing_spend(self):
         def denied_then_completed(record):
             message = record['messages'][1]

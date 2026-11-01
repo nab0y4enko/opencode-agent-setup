@@ -26,11 +26,11 @@ task) changes planning and review.
 |---|---|---|---|---|
 | `hybrid` | inherited (cloud) | plans, writes 1–4 contracts with exact symbols or line ranges, up to two repairs per worker, runs the final check, asks a review and after `CHANGES_REQUIRED` one more | 100 | cannot edit; may call only `general`, `explore`, `review` |
 | `general` | local | implements one contract and the tests or specs it names, fixes its own build and test failures (up to three check runs), returns a ≤120-word receipt | 200 | unrestricted shell; no subagents; never weakens an assertion |
-| `explore` | local | answers lookup questions (OpenCode's built-in prompt) | 50 | no skills |
+| `explore` | local | answers precise lookup questions in ≤160 words | 50 | no skills |
 | `review` | inherited (cloud) | reviews the exact diff, ends with `VERDICT: PASS|CHANGES_REQUIRED <sha256>` | 30 | unrestricted shell; cannot edit, no skills |
-| `title`, `summary` | local | session housekeeping | — | — |
+| `title`, `summary`, `compaction` | local | session housekeeping and summary compaction | — | — |
 
-Facts that shape the prompts (OpenCode 2.1.4):
+Facts that shape the prompts (source checked on OpenCode 2.2.5):
 - An agent's `system` text replaces OpenCode's base prompt and the GPT-tuned provider prompt.
 - A subagent's whole final reply is returned to its caller, so short receipts are the main lever on
   cloud tokens.
@@ -58,6 +58,51 @@ served model length and output a quarter of it, at most 32,768, unless `--contex
 otherwise. Last it runs `opencode debug agents --standalone` and exits non-zero unless `general` and
 `explore` use the local model, `hybrid` and `review` inherit the cloud model, every step limit
 matches and the three shell roles may run a wrapped command. Rerun it after changing the profile.
+
+### Maintenance routing and bounded work
+
+OpenCode 2.2.5 summary compaction honors `agents.compaction.model`, falling back to the
+session model if resolution fails. The audited installation explicitly pinned that role to Sol;
+normal local-worker routing did not override it. This profile pins the supported compaction role
+to oMLX. This is a global summary role, including cloud-session summaries; it does not change the
+selected cloud model or Hybrid/review routing. Native provider compaction always uses the session
+model and bypasses this override. There is no per-worker compaction selector in this version.
+Do not change provider compaction settings to work around that boundary; keep contracts/sessions
+bounded and report native maintenance spend by its recorded model. Failed compactions may omit
+model/effort: accounting must retain unknown attribution rather than invent it.
+
+Sources: [v2.2.5 selection and billing](https://github.com/anomalyco/opencode/blob/v2.2.5/packages/core/src/session/compaction.ts),
+[record schema](https://github.com/anomalyco/opencode/blob/v2.2.5/packages/schema/src/session-message.ts),
+[model resolution](https://github.com/anomalyco/opencode/blob/v2.2.5/packages/core/src/session/runner/model.ts).
+An isolated local-only v2.2.5 probe completed a summary request on oMLX: 753 uncached input,
+4,832 cached input, 465 output and 10 reasoning tokens. Raw records stay outside this repository.
+The probe used separate configuration/data storage containing only the local provider; it did not
+make cloud calls. Recheck routing after upgrades; successful role listing alone is not a request probe.
+
+Contracts are ≤250 words, exploration receipts ≤160 and worker receipts ≤120. Split long work at
+explicit, independently testable interfaces rather than extending investigations indefinitely.
+One named owner controls each shared build resource. Every build/check invocation counts against
+the existing three-run worker limit; retries require diagnosed causes and changes. Preserve the
+original command exit code and real compiler diagnostics, and never poll builds waiting for edits.
+Critical lifecycle claims need runtime evidence early: actual owning-view scroll callbacks,
+held-loader cancellation/obsolete-success fencing, and identity/state preservation. Performance
+improvement requires matched baseline conditions. Missing qualification remains a reported gap.
+
+Real-work reviews use one canonical manifest covering tracked and new task content and file modes:
+
+```sh
+python3 benchmarks/review_manifest.py --base <recorded-start-commit>  # save outside checkout
+# Add --path <task-file> for each explicit task path when unrelated work is present.
+```
+
+Give the reviewer that command/base/path list, manifest/digest, all requirements and stable final
+check/runtime evidence. Review the whole change and retrieve surrounding context in focused batches.
+Compare `--staged` and `--revision HEAD` using the same base/path list with the reviewed
+manifest, so index-only hook changes cannot hide behind unchanged working files. Any
+content, path, deletion or mode change invalidates approval. The supplementary canonical manifest
+in benchmark scope receipts does not replace historical patch digests: frozen fixtures still forbid
+new files and retain their original authoritative verdict/acceptance rules. Reports are assembled
+from sealed final evidence, not rewritten during implementation.
 
 ### Commit, push and recovery ownership
 
@@ -143,11 +188,15 @@ run directories.
 - *Tokens by seat* shows Sol vs Luna (Codex) and Sol vs local (Hybrid), each split into uncached
   input, cached input, output and reasoning.
 - Below it: Hybrid cloud share, Hybrid cloud ÷ Codex cloud, and pass/fail per target.
+- Recorded compaction spend is shown separately by request tier, already included in seat totals.
+- Absolute cloud counters, cached/uncached input, elapsed time and acceptance remain separate.
+  Inflated local cached traffic can lower share without reducing cloud spend.
 - `compare` adds medians and accepted counts across rounds.
 
 **Accounting rules that must never be weakened:**
 - Codex cumulative usage is counted once per session; cached input and reasoning are subsets.
-- OpenCode per-message usage is summed once; any session-aggregate gap stays separate maintenance.
+- OpenCode usage-bearing requests, including compaction/non-assistant records and failed spend,
+  are summed once by their recorded model; only unexplained aggregate gaps stay separate maintenance.
 - Seats follow the recorded model of each request.
 - Failed and timeout spend is kept; unknown usage is never zero.
 - Acceptance requires the full suite, the allowed scope, frozen inputs, recorded routing and
@@ -163,7 +212,9 @@ Results of every paid round: `benchmarks/results/RESULTS.md`.
 - The main reliability lever was check output a repair can act on: compiler errors, not just
   `TESTS total=0`.
 - That profile had 30/40/16/12 steps, an 8,192-token local output limit and workers that ran their
-  check once. The current real-work profile has not been benchmarked yet. A round still allows each
+  check once. The current real-work profile has one paired round recorded in `benchmarks/results/RESULTS.md`: both
+  arms accepted, absolute cloud tokens lower, but the 0.35 share target missed. One round does not
+  establish repeatability. A round still allows each
   worker one repair and one review, because the frozen task prompt and the accounting say so.
 
 ## Repository map

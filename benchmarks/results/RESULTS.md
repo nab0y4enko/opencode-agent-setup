@@ -4,6 +4,50 @@ Every paid round is listed, failed ones included. "Cloud" is all cloud tokens of
 Sol + Luna; Hybrid: Sol coordinator + reviewer). Cached input is counted inside cloud tokens and
 shown separately in each round's `REPORT.md`. Raw tokens are not prices or quota.
 
+## Mac Studio M5 Max: setup reliability profile (2026-11-01)
+
+One authorized paired `swiftui-list` round: **both arms accepted**, with the frozen 1,200-second
+budget per arm, one repair and one review. The permission gate passed with both wrapped-command
+probes on the local model, without denials or warnings. Both preparation baselines reproduced
+12 tests with five intentional failures. No fixture or historical acceptance rule changed.
+
+| Arm | Accepted | Final suite | Model seconds | Total arm seconds | Attributed cloud | Unallocated maintenance | Local |
+|---|---|---|---|---|---|---|---|
+| Codex Sol + Luna | yes | 12/12, zero failures | 88.917 | 115.483 | 513,192 | 0 | n/a |
+| Hybrid Sol + oMLX | yes | 12/12, zero failures | 282.751 | 306.442 | 92,046 | 1,051 | 117,533 |
+
+| Cloud counters | Uncached input | Cached input | Output | Reasoning | Attributed total |
+|---|---|---|---|---|---|
+| Codex | 57,974 | 452,608 | 2,238 | 372 | 513,192 |
+| Hybrid | 22,865 | 66,816 | 2,218 | 147 | 92,046 |
+
+Hybrid cloud is bounded at **92,046–93,097 tokens**, or **17.94–18.14% of Codex cloud**.
+The absolute-cloud target passed. Cloud share was **43.70–44.20%**: the **35% target and 20%
+stretch target failed**. Local cached input was 97,120 tokens; a larger cached local denominator
+would lower share without proving a cloud saving. Hybrid took longer. These are separate outcomes,
+and one accepted round does not establish repeatability or long-session efficiency.
+
+There were **no recorded compactions in this paid round**. A separate isolated local-only
+OpenCode 2.2.5 summary-compaction probe recorded `omlx/qwen-3.8-nf-splash`: 753 uncached input,
+4,832 cached input, 465 output and 10 reasoning tokens (6,060 total), with no cloud route available.
+The installed configuration had explicitly pinned `agents.compaction.model` to Sol; source inspection
+confirmed its global summary override and the native-compaction session-model bypass. The profile
+now routes summary maintenance locally. The selected cloud model, providers, permissions and
+inherited Hybrid/review routing were verified unchanged, with verified private installer backups.
+This probe establishes routing, not long-session summary quality. Re-accounting the audited
+production session reproduced its recorded totals and 943,473 uncached cloud compaction tokens,
+leaving the original 633-token aggregate gap separate; no historical acceptance was inferred.
+
+The independent benchmark verdicts passed their frozen patch digests. The runner verified final
+suites, scope, frozen inputs, recorded routing/usage/completion, budget and retained evidence.
+All arm checkouts and permission-probe repositories were archived, verified and removed; probe
+recovery bundles were cloned successfully, and run-owned simulators were deleted. No linked
+worktree was created for setup work. Raw evidence remains outside the repository.
+
+The [redacted round record](m5max-2026-11-01-setup-reliability-01.json) records exact counters,
+compaction, timing, acceptance and archive hashes. Reports were regenerated offline from sealed
+final evidence after the accounting correction; the frozen profile and task stayed unchanged.
+
 ## Mac Studio M5 Max: current settings, Hybrid only (2026-10-28)
 
 **Accepted: 1/1 Hybrid run** on the current user-updated settings and unchanged benchmark at

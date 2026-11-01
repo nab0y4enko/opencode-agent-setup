@@ -207,6 +207,59 @@ class OwnedCleanup(unittest.TestCase):
     def manifest(self, repo):
         return {'arms': {'codex': {'repo': str(repo)}}, 'owned_paths': [str(repo), str(self.user)]}
 
+    def test_canonical_manifest_binds_tracked_new_binary_modes_and_deletions(self):
+        manifest = self.manifest(self.repo)
+        base = R.git(self.repo, 'rev-parse', 'HEAD')
+        manifest.update(frozen_files=[], fixture_sha256={}, allowed_changed=['ttl_cache.py'])
+        manifest['arms']['codex']['base'] = base
+        tracked = self.repo / 'ttl_cache.py'
+        tracked.write_text('x = 2\n')
+        new = self.repo / 'new file.bin'
+        new.write_bytes(b'\x00first')
+        first = R.scope_and_digest(self.repo, manifest, 'codex')
+        self.assertIsNotNone(first.get('canonical'), 'review must cover new content as well as the tracked patch')
+        digest = first['canonical']['digest']
+        for path, content in ((new, b'\x00second'), (tracked, b'x = 3\n')):
+            path.write_bytes(content)
+            changed = R.scope_and_digest(self.repo, manifest, 'codex')['canonical']['digest']
+            self.assertNotEqual(digest, changed)
+            digest = changed
+        tracked.chmod(0o755)
+        changed = R.scope_and_digest(self.repo, manifest, 'codex')['canonical']['digest']
+        self.assertNotEqual(digest, changed)
+        new.unlink()
+        deleted = R.scope_and_digest(self.repo, manifest, 'codex')['canonical']['digest']
+        self.assertNotEqual(changed, deleted)
+        before = R.scope_and_digest(self.repo, manifest, 'codex')['canonical']
+        self.git('-C', str(self.repo), 'add', '--', 'ttl_cache.py')
+        self.assertEqual(before, R.scope_and_digest(self.repo, manifest, 'codex')['canonical'])
+        self.git('-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-C', str(self.repo),
+                 'commit', '-qm', 'task')
+        self.assertEqual(before, R.scope_and_digest(self.repo, manifest, 'codex')['canonical'])
+        tracked.unlink()
+        self.assertNotEqual(before['digest'], R.scope_and_digest(self.repo, manifest, 'codex')['canonical']['digest'])
+        # Frozen benchmark acceptance still rejects new files; its historical digest is unchanged.
+        self.assertFalse(first['scope_ok'])
+
+    def test_index_only_or_hook_commit_changes_cannot_match_worktree_review(self):
+        base = R.git(self.repo, 'rev-parse', 'HEAD')
+        (self.repo / 'ttl_cache.py').write_text('reviewed = True\n')
+        (self.repo / 'new.bin').write_bytes(b'\x00reviewed')
+        reviewed = R.canonical_manifest(self.repo, base)
+        self.git('-C', str(self.repo), 'add', '--', 'ttl_cache.py', 'new.bin')
+        self.assertEqual(reviewed, R.canonical_manifest(self.repo, base, staged=True))
+        self.git('-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-C', str(self.repo), 'commit', '-qm', 'reviewed')
+        self.assertEqual(reviewed, R.canonical_manifest(self.repo, base, revision='HEAD'))
+        # Simulate an index-only hook mutation without changing the reviewed working file.
+        oid = subprocess.run(['git', '-C', str(self.repo), 'hash-object', '-w', '--stdin'],
+                             input=b'unreviewed hook content\n', capture_output=True, check=True).stdout.decode().strip()
+        self.git('-C', str(self.repo), 'update-index', '--cacheinfo', '100644', oid, 'ttl_cache.py')
+        self.assertEqual(reviewed, R.canonical_manifest(self.repo, base))
+        self.assertNotEqual(reviewed, R.canonical_manifest(self.repo, base, staged=True))
+        self.git('-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-C', str(self.repo), 'commit', '-qm', 'hook')
+        self.assertEqual(reviewed, R.canonical_manifest(self.repo, base))
+        self.assertNotEqual(reviewed, R.canonical_manifest(self.repo, base, revision='HEAD'))
+
     def test_a_forged_manifest_cannot_delete_a_user_path(self):
         report = R.archive_and_cleanup(self.out, self.manifest(self.user), 'codex')
         self.assertEqual(report['status'], 'blocked_not_owned')
@@ -579,6 +632,27 @@ class TwoArmFakeRun(FakeCliHarness):
         self.assertIn(f'| codex | planner | {SOL} |', markdown)
         self.assertIn('| opencode | worker | omlx/test-local |', markdown)
         self.assertIn('## Targets', markdown)
+
+    def test_report_separates_known_compaction_spend_from_acceptance_and_share(self):
+        self.assertEqual(self.live()[0], 0)
+        report = self.report()
+        markdown = R.render_markdown(report)
+        self.assertIn('## Recorded compaction spend', markdown)
+        self.assertIn('| model seconds | total seconds |', markdown)
+        self.assertIn('cached local traffic', markdown)
+        absolute = report['metrics'].get('absolute_cloud')
+        self.assertIsNotNone(absolute)
+        self.assertEqual(absolute['opencode']['total'], 2000)
+        self.assertEqual(absolute['opencode']['uncached_input'], 1100)
+        self.assertEqual(absolute['opencode']['cached_input'], 400)
+        arms = report['arms']
+        original = R.seat_metrics(arms)
+        arms['opencode']['accounting']['seats']['worker']['cached_input'] += 1000000
+        arms['opencode']['accounting']['seats']['worker']['total'] += 1000000
+        inflated = R.seat_metrics(arms)
+        self.assertLess(inflated['hybrid_cloud_share']['value'], original['hybrid_cloud_share']['value'])
+        self.assertEqual(inflated['absolute_cloud'], original['absolute_cloud'])
+        self.assertEqual(inflated['cloud_vs_codex'], original['cloud_vs_codex'])
 
     def test_compare_summarises_repeated_rounds(self):
         self.assertEqual(self.live()[0], 0)

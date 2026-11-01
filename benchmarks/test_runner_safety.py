@@ -186,6 +186,8 @@ class ConservativeMetricTargets(unittest.TestCase):
 
     def test_targets_pass_when_the_entire_maintenance_interval_meets_them(self):
         metrics = R.seat_metrics(self.arms(10, 90, 5))
+        self.assertIsNone(metrics['absolute_cloud']['opencode']['uncached_input'])
+        self.assertEqual(metrics['absolute_cloud']['opencode']['total'], 10)
         self.assertTrue(all(metrics['targets'].values()), metrics)
         self.assertAlmostEqual(metrics['hybrid_cloud_share']['lower_bound'], 10 / 105)
         self.assertAlmostEqual(metrics['hybrid_cloud_share']['upper_bound'], 15 / 105)

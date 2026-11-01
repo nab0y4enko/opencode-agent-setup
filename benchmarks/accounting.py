@@ -3,9 +3,9 @@
 Codex: the final cumulative ``total_token_usage`` of each rollout is counted once for the root
 and once per descendant; cached input is a subset of input and reasoning output a subset of
 output, so the reported parts stay disjoint and still add up to the recorded total. OpenCode:
-usage is already disjoint per assistant message, so every assistant record is summed once,
+usage is disjoint per stored request (including compactions), so each request is summed once,
 failures and unfinished records included; the difference between a native session aggregate and
-its assistant sum is unknown maintenance and stays its own number, never folded into a tier.
+its recorded request sum is unknown maintenance and stays its own number, never folded into a tier.
 Unknown is never zero and routing is never assumed: a missing model, reasoning effort,
 completion marker, descendant rollout or usage field fails the arm closed, leaving only a known
 lower bound and no accepted verdict.
@@ -705,22 +705,23 @@ def _permission_denied(node):
 def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, expected_cloud_model,
                      expected_local_provider, expected_local_model, expected_local_agent='general',
                      expected_review_agent='review', max_local_dispatches=2, client='opencode-cli',
-                     max_workers=4, max_explore=2, expected_explore_agent='explore'):
-    """Disjoint assistant-message usage summed once per message, failures and gaps included."""
+                     max_workers=4, max_explore=2, expected_explore_agent='explore', expected_compaction_model=None):
+    """Recorded request usage summed once per message, failures and unexplained gaps included."""
     fields = ('input', 'output', 'reasoning', 'cache_read', 'cache_write')
     totals = {t: dict.fromkeys(fields + ('total',), 0) for t in ('cloud', 'local', 'unknown')}
     sessions_out, requests, blockers = [], [], []
     unexpected_models, missing_usage, invalid_completion = [], [], []
     pending, variant_mismatch, unknown_fields, permission_denials = [], [], [], []
-    invalid_usage, duplicate_records, unattributed = [], [], []
+    invalid_usage, duplicate_records, unattributed, missing_identity = [], [], [], []
     assistant_models, assistant_variants, local_sessions, review_sessions = {}, {}, [], []
     explore_sessions = []
     cloud_qualified = f'{expected_cloud_provider}/{expected_cloud_model}'
     seats = {'planner': empty_usage(cloud_qualified), 'worker': empty_usage(expected_local_model),
              'unknown': empty_usage()}
     by_model, by_role = {}, {}
+    compaction = {t: empty_usage() for t in ('cloud', 'local', 'unknown')}
     incomplete_sessions = []
-    seen_sessions, seen_messages = set(), {}
+    seen_sessions, seen_messages = set(), set()
     maintenance = 0
     for rec in snapshot.get('records', []):
         session, sid = rec['session'], rec['session']['id']
@@ -728,7 +729,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             duplicate_records.append(f'{sid}:session')
             continue
         seen_sessions.add(sid)
-        message_ids = seen_messages.setdefault(sid, set())
+        message_ids = seen_messages
         agent = session.get('agent') or _agent_from_assistants(rec['messages'])
         session_model = _model_fields(session.get('model'))
         if agent == expected_local_agent:
@@ -737,7 +738,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             review_sessions.append(sid)
         elif agent == expected_explore_agent:
             explore_sessions.append(sid)
-        known = user_turns = edit_calls = model_calls = 0
+        known = assistant_total = user_turns = edit_calls = model_calls = 0
         tool_counts, session_pending = {}, []
         for message in rec['messages']:
             mid = message.get('id')
@@ -754,11 +755,17 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             if not isinstance(data, dict):
                 blockers.append(f'session {sid} message {mid} has undecodable data (not an object)')
                 continue
-            if message.get('type') == 'user':
+            kind = message.get('type')
+            is_assistant = kind == 'assistant'
+            if kind == 'user':
                 user_turns += 1
+            # Selection/idle/user records without usage are not requests. Compaction records
+            # are requests even when failed/running and usage was never captured.
+            if not is_assistant and kind != 'compaction' and 'tokens' not in data:
                 continue
-            if message.get('type') != 'assistant':
-                continue
+            if not isinstance(mid, str) or not mid:
+                missing_identity.append(f'{sid}:{message.get("seq")}')
+                blockers.append(f'session {sid} has no request identity; known usage is retained but cannot be deduplicated reliably')
             if _permission_denied(data):
                 permission_denials.append(f'{sid}:{mid}')
                 blockers.append(f'session {sid} message {mid} recorded a permission denial; the arm '
@@ -773,7 +780,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             tier = ('cloud' if attributed and provider == expected_cloud_provider
                     else 'local' if attributed and provider == expected_local_provider else 'unknown')
             variant = str(own.get('variant') or '').strip().lower() or None
-            if tier == 'cloud':
+            if tier == 'cloud' and is_assistant:
                 assistant_variants.setdefault(sid, set()).add(variant)
             cache = tokens.get('cache') if isinstance(tokens.get('cache'), dict) else {}
             bad = counter_problems(tokens, OPENCODE_TOKEN_FIELDS) + counter_problems(cache, OPENCODE_CACHE_FIELDS)
@@ -787,6 +794,8 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
                 unknown_fields.append(f'{sid}:{mid}:{",".join(extra)}')
             total = sum(counts.values())
             known += total
+            if is_assistant:
+                assistant_total += total
             for key, value in counts.items():
                 totals[tier][key] += value
             totals[tier]['total'] += total
@@ -798,34 +807,53 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
                      counts['reasoning'], total)
             add_usage(seats[seat], *parts)
             add_usage(by_model.setdefault(qualified, empty_usage(qualified)), *parts)
-            role_name = str(data.get('agent') or agent or 'unknown')
+            if kind == 'compaction':
+                add_usage(compaction[tier], *parts)
+            role_name = str(data.get('agent') or agent or 'unknown') if is_assistant else str(kind)
             add_usage(by_role.setdefault(role_name, empty_usage()), *parts)
             tools = []
             _tool_names(data, tools)
             edit_calls += sum(1 for t in tools if t in EDIT_TOOLS)
             for tool in tools:
                 tool_counts[tool] = tool_counts.get(tool, 0) + 1
-            finish = data.get('finish')
-            if not finish or str(finish).lower() in ERROR_FINISHES:
+            finish = data.get('finish') if is_assistant else data.get('status')
+            failed = (not finish or str(finish).lower() in ERROR_FINISHES or
+                      (not is_assistant and finish != 'completed') or bool(data.get('error')))
+            if failed:
                 session_pending.append(mid)
                 (pending if not finish else invalid_completion).append(
                     f'{sid}:{mid}' if not finish else f'{sid}:{mid}:finish={finish}')
-            if attributed:
+            if attributed and is_assistant:
                 assistant_models.setdefault(sid, set()).add(f"{own['providerID']}/{own['modelID']}")
                 model_calls += 1
-            else:
+            elif not attributed:
                 unattributed.append(f'{sid}:{mid}')
-                blockers.append(f"session {sid} assistant message {mid} recorded no provider/model of its "
+                blockers.append(f"session {sid} request {mid} recorded no provider/model of its "
                                 'own; actual routing is read from the request, never inherited from the '
                                 'session configuration')
+            native_compaction = kind == 'compaction' and isinstance(_dig(data, 'native', 'messages'), list)
+            if not is_assistant and attributed:
+                expected = (expected_compaction_model if kind == 'compaction' and not native_compaction and expected_compaction_model
+                            else expected_local_model if agent in (expected_local_agent, expected_explore_agent)
+                            else cloud_qualified)
+                expected, _, expected_variant = expected.partition('#')
+                if qualified != expected:
+                    unexpected_models.append(f'{sid}:{kind}:{qualified}')
+                    blockers.append(f'session {sid} maintenance routing {qualified} instead of {expected}; '
+                                    'maintenance is counted separately from normal worker execution')
+                required_variant = expected_variant or (EXPECTED_REASONING_VARIANT if tier == 'cloud' else None)
+                if required_variant and variant != required_variant:
+                    variant_mismatch.append(f'{sid}:{kind}:{variant or "missing"}')
+                    blockers.append(f'session {sid} maintenance reasoning variant {variant!r} instead of '
+                                    f'{required_variant!r}; effort is read from the request, never assumed')
             if tier == 'cloud' and model_id and model_id != expected_cloud_model:
                 unexpected_models.append(f'{sid}:{agent}:{provider}/{model_id}')
             if (tier == 'local' and agent == expected_local_agent and model_id
                     and f'{provider}/{model_id}' != expected_local_model):
                 unexpected_models.append(f'{sid}:{agent}:{provider}/{model_id}')
             requests.append({'session': sid, 'message': mid, 'seq': message.get('seq'),
-                             'agent': data.get('agent') or agent, 'provider': provider, 'model': model_id,
-                             'variant': variant, 'tier': tier, 'finish': finish, **counts, 'total': total})
+                             'agent': data.get('agent') or agent, 'kind': kind, 'provider': provider, 'model': model_id,
+                             'variant': variant, 'tier': tier, 'finish': finish, 'native_compaction': native_compaction, **counts, 'total': total})
         native_bad = counter_problems(session, ['tokens_' + f for f in fields])
         native_total = sum(as_counter(session.get('tokens_' + f)) or 0 for f in fields)
         if native_bad:
@@ -847,11 +875,11 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             evidence.append('trailing user message awaiting a response')
         incomplete_sessions += [f'{sid}:{reason}' for reason in evidence]
         if gap < 0:
-            blockers.append(f'session {sid} native aggregate {native_total} is below the summed assistant '
+            blockers.append(f'session {sid} native aggregate {native_total} is below the summed request '
                             f'usage {known}; accounting is inconsistent')
         sessions_out.append({'id': sid, 'parent_id': session.get('parent_id'), 'agent': agent,
                              'model': session_model, 'directory': session.get('directory'),
-                             'native_total': native_total, 'assistant_total': known, 'maintenance_gap': gap,
+                             'native_total': native_total, 'assistant_total': assistant_total, 'request_total': known, 'maintenance_gap': gap,
                              'user_turns': user_turns, 'edit_calls': edit_calls, 'model_calls': model_calls,
                              'tool_calls': sum(tool_counts.values()), 'tools': dict(sorted(tool_counts.items())),
                              'pending_assistant_messages': session_pending, 'time_created': session.get('time_created'),
@@ -950,7 +978,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
         blockers.append(f'native session {entry} lacks completion evidence; its counted usage is retained, '
                         'but a session that never went idle or still awaits an answer cannot pass the arm')
     usage_complete = not (pending or unknown_fields or missing_usage or invalid_completion
-                          or invalid_usage or duplicate_records or incomplete_sessions
+                          or invalid_usage or duplicate_records or incomplete_sessions or missing_identity
                           or [b for b in blockers if 'inconsistent' in b or 'undecodable' in b])
     cloud_known = totals['cloud']['total']
     status = ('unknown' if not usage_complete or unattributed else
@@ -961,7 +989,7 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
             'root_session_ids': root_ids, 'local_worker_sessions': local_sessions,
             'local_dispatches': dispatches, 'review_sessions': review_sessions, 'totals': totals,
             'explore_sessions': explore_sessions, 'max_workers': max_workers, 'seats': seats,
-            'by_model': by_model, 'by_role': by_role,
+            'by_model': by_model, 'by_role': by_role, 'compaction': compaction,
             'cloud_total': cloud_known if status == 'exact' else None, 'known_lower_bound': cloud_known,
             'local_total': totals['local']['total'], 'unknown_maintenance_total': maintenance,
             'unknown_usage_total': totals['unknown']['total'], 'usage_complete': usage_complete,
@@ -972,11 +1000,11 @@ def account_opencode(snapshot, *, root_session_ids, expected_cloud_provider, exp
                                  'or routing coverage is incomplete'},
             'pending_assistant_messages': pending, 'missing_usage_fields': missing_usage,
             'incomplete_sessions': incomplete_sessions,
-            'invalid_usage_fields': invalid_usage, 'duplicate_records': duplicate_records,
+            'invalid_usage_fields': invalid_usage, 'duplicate_records': duplicate_records, 'missing_request_identity': missing_identity,
             'assistant_messages_without_model': unattributed,
             'invalid_completion': invalid_completion, 'unaccounted_usage_fields': unknown_fields,
             'variant_mismatch': variant_mismatch, 'unexpected_models': unexpected_models,
             'permission_denials': permission_denials,
             'routing_ok': not blockers and not unexpected_models, 'blockers': blockers,
-            'counting': 'per assistant message fields summed once; the session-aggregate difference stays '
+            'counting': 'per recorded request fields summed once, including compactions; the unexplained session-aggregate difference stays '
                         'unknown maintenance, never a tier'}

@@ -34,7 +34,7 @@ LOCAL_MODEL = f'omlx/{MODEL_REF}'
 DEFAULT_URL = 'http://127.0.0.1:8000/v1'
 MAX_OUTPUT = 32768
 SHELL_ROLES = ('hybrid', 'general', 'review')
-LOCAL_ROLES = ('general', 'explore')
+LOCAL_ROLES = ('general', 'explore', 'compaction')
 CLOUD_ROLES = ('hybrid', 'review')
 # Rules earlier profile versions installed; a reinstall removes them so they cannot outlive the profile.
 LEGACY_RULES = {'general': [{'action': 'skill', 'resource': '*', 'effect': 'deny'}]}

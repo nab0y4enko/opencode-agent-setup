@@ -70,6 +70,17 @@ class Merge(unittest.TestCase):
                 if key != 'permissions':
                     self.assertEqual(self.merged['agents'][name][key], value, (name, key))
 
+    def test_compaction_overrides_stale_cloud_pin_and_is_verified_local(self):
+        installed = dict(INSTALLED, agents=dict(INSTALLED['agents'],
+                         compaction={'model': 'openai/stale#medium'}))
+        merged = I.merge(installed, PROFILE, MODEL, LIMITS)
+        self.assertEqual(merged['agents']['compaction']['model'], I.LOCAL_MODEL)
+        agents = listing(merged)
+        next(a for a in agents if a['id'] == 'compaction')['model'] = {'providerID': 'openai', 'id': 'stale'}
+        self.assertTrue(any('compaction runs on' in p for p in I.check_agents(agents, PROFILE, MODEL)))
+        self.assertEqual(merged['model'], installed['model'])
+        self.assertEqual(merged['providers']['openai'], installed['providers']['openai'])
+
     def test_cloud_roles_never_keep_a_pinned_model(self):
         self.assertNotIn('model', self.merged['agents']['hybrid'])
         self.assertNotIn('model', self.merged['agents']['review'])

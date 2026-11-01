@@ -1,0 +1,336 @@
+{
+  "date": "2026-11-01",
+  "fixture": "swiftui-list",
+  "round": "setup-reliability-01",
+  "source_base": "1c624a5ff887c7cd9e643061352b4237c17de4a9",
+  "models": {
+    "codex_cloud": "gpt-6.1-sol",
+    "codex_child": "gpt-6-luna",
+    "opencode_cloud": "openai/gpt-6.1-sol#medium",
+    "local": "omlx/qwen-3.8-nf-splash",
+    "effort": "medium"
+  },
+  "budget": {
+    "wall_clock_seconds_per_arm": 1200,
+    "initial": 1,
+    "repair": 1,
+    "max_workers": 4
+  },
+  "hardware": {
+    "computer": "Mac Studio",
+    "model_identifier": "Mac17,14",
+    "chip": "Apple M5 Max",
+    "cpu_description": "proc 18:6:12:0",
+    "memory": "128 GB",
+    "gpus": [
+      {
+        "chip": "Apple M5 Max",
+        "cores": 40
+      }
+    ]
+  },
+  "software": {
+    "platform": "macOS-27.2-arm64-arm-64bit",
+    "python": "3.9.6",
+    "git": "git version 2.56.0",
+    "codex": "codex-cli 0.166.0",
+    "opencode": "opencode v2.2.5"
+  },
+  "frozen_fields_sha256": "a46df1aecf0c1256e7dad453ede9bd2b5938876fdc41a624849e81d2fd40db0a",
+  "profile_sha256": "a0bf2cd1881bc1ad6d89852ad71d1ba99164c95e7ad5d6bb9a1eea728e8cf932",
+  "source_files_sha256": {
+    "AGENTS.md": "bf46c163dcd6de0d2abacef7404c86a337711085c60e1609c5bb90289a72d300",
+    "config/opencode.json": "a0bf2cd1881bc1ad6d89852ad71d1ba99164c95e7ad5d6bb9a1eea728e8cf932",
+    "install.py": "847088b44ce4a2d860ae42cc203bc9815670581a887ca0ddbc838db9f9508faa",
+    "benchmarks/accounting.py": "3e5ba441104d11970875fb452c2712d70935f5c816ace7970b73578e78b00a1d",
+    "benchmarks/run.py": "e564915f04cf8034cf9bfdd3fd878c48070e034c1b3ec0fd10d2db0b637252ef",
+    "benchmarks/review_manifest.py": "6f7886ab337d1e7d60f3ce0aa15f1586492c1a4b9c58cbf36a9c000190b4c99a"
+  },
+  "configuration": {
+    "selected_cloud_unchanged": true,
+    "providers_unchanged": true,
+    "permissions_unchanged": true,
+    "hybrid_review_inherit": true,
+    "summary_compaction_model": "omlx/qwen-3.8-nf-splash"
+  },
+  "permission_gate": {
+    "status": "passed",
+    "warnings": [],
+    "probes": {
+      "general": {
+        "tool_calls": 1,
+        "denied": [],
+        "errors": [],
+        "exit_code": 0,
+        "timed_out": false
+      },
+      "review": {
+        "tool_calls": 1,
+        "denied": [],
+        "errors": [],
+        "exit_code": 0,
+        "timed_out": false
+      }
+    }
+  },
+  "baselines": {
+    "codex": {
+      "tests_run": 12,
+      "failures": 5,
+      "errors": 0,
+      "skipped": null,
+      "seconds": 85.944
+    },
+    "opencode": {
+      "tests_run": 12,
+      "failures": 5,
+      "errors": 0,
+      "skipped": null,
+      "seconds": 69.566
+    }
+  },
+  "arms": {
+    "codex": {
+      "accepted": true,
+      "failed_gates": [],
+      "execution": {
+        "seconds": 88.917,
+        "total_seconds": 115.483,
+        "exit_code": 0,
+        "timed_out": false
+      },
+      "check": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": null,
+        "exit_code": null,
+        "timed_out": null,
+        "seconds": 26.091
+      },
+      "verdict": {
+        "status": "pass",
+        "digest_matches": true
+      },
+      "reviewed_patch_sha256": "82d25000efb5a8153985909b98cecbb519bd30c4acf15d64637798993096b3bb",
+      "seats": {
+        "planner": {
+          "uncached_input": 43318,
+          "cached_input": 325376,
+          "output": 1197,
+          "reasoning": 196,
+          "total": 370087,
+          "model": "gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 14656,
+          "cached_input": 127232,
+          "output": 1041,
+          "reasoning": 176,
+          "total": 143105,
+          "model": "gpt-6-luna"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "compaction": null,
+      "usage_complete": true,
+      "routing_ok": true,
+      "cloud_tokens": 513192,
+      "known_cloud_lower_bound": 513192,
+      "cloud_cost_range": null,
+      "local_tokens": null,
+      "unknown_maintenance": 0,
+      "retained_evidence_verified": true
+    },
+    "opencode": {
+      "accepted": true,
+      "failed_gates": [],
+      "execution": {
+        "seconds": 282.751,
+        "total_seconds": 306.442,
+        "exit_code": 0,
+        "timed_out": false
+      },
+      "check": {
+        "tests_run": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": null,
+        "exit_code": null,
+        "timed_out": null,
+        "seconds": 23.626
+      },
+      "verdict": {
+        "status": "pass",
+        "digest_matches": true
+      },
+      "reviewed_patch_sha256": "236e7b346a5d68152176402a67773b54ad2f0d4e5d25d3e8d890366fab71eb5a",
+      "seats": {
+        "planner": {
+          "uncached_input": 22865,
+          "cached_input": 66816,
+          "output": 2218,
+          "reasoning": 147,
+          "total": 92046,
+          "model": "openai/gpt-6.1-sol"
+        },
+        "worker": {
+          "uncached_input": 15775,
+          "cached_input": 97120,
+          "output": 2332,
+          "reasoning": 2306,
+          "total": 117533,
+          "model": "omlx/qwen-3.8-nf-splash"
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "compaction": {
+        "cloud": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        },
+        "local": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        },
+        "unknown": {
+          "uncached_input": 0,
+          "cached_input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "total": 0,
+          "model": null
+        }
+      },
+      "usage_complete": true,
+      "routing_ok": true,
+      "cloud_tokens": null,
+      "known_cloud_lower_bound": 92046,
+      "cloud_cost_range": {
+        "lower_bound": 92046,
+        "upper_bound": 93097,
+        "status": "cloud_exact_unknown",
+        "note": "unknown maintenance stays its own number; the exact cloud total and every upper bound are withheld while usage evidence or routing coverage is incomplete"
+      },
+      "local_tokens": 117533,
+      "unknown_maintenance": 1051,
+      "retained_evidence_verified": true
+    }
+  },
+  "metrics": {
+    "absolute_cloud": {
+      "codex": {
+        "uncached_input": 57974,
+        "cached_input": 452608,
+        "output": 2238,
+        "reasoning": 372,
+        "total": 513192
+      },
+      "opencode": {
+        "uncached_input": 22865,
+        "cached_input": 66816,
+        "output": 2218,
+        "reasoning": 147,
+        "total": 92046
+      }
+    },
+    "hybrid_cloud_share": {
+      "value": 0.4391947666512389,
+      "exact": false,
+      "lower_bound": 0.43700327588662585,
+      "upper_bound": 0.4419930684138062,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "cloud_vs_codex": {
+      "value": 0.17935977178132162,
+      "hybrid_cloud": 92046,
+      "codex_cloud": 513192,
+      "lower_bound": 0.17935977178132162,
+      "upper_bound": 0.181407738234423,
+      "value_basis": "attributed requests only; unknown maintenance excluded"
+    },
+    "targets": {
+      "both_arms_accepted": true,
+      "hybrid_cloud_at_most_half_of_codex": true,
+      "hybrid_cloud_share_at_most_0.35": false,
+      "stretch_cloud_share_at_most_0.20": false
+    }
+  },
+  "local_compaction_probe": {
+    "model": "omlx/qwen-3.8-nf-splash",
+    "uncached_input": 753,
+    "cached_input": 4832,
+    "output": 465,
+    "reasoning": 10,
+    "total": 6060,
+    "cloud_requests": 0
+  },
+  "cleanup": [
+    {
+      "arm": "codex",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "2c21a862ba97d081889c1220d4b0bf89e824a494be23cdf7f9dde16d6d821a62",
+      "bundle_verified": true,
+      "bundle_sha256": "3abf92e2b5b6f0e9ee0c7c852c92f8494c8b7cd8ac799c6a3c77b0b63b57aef3"
+    },
+    {
+      "arm": "opencode",
+      "status": "archived_and_removed",
+      "tar_verified": true,
+      "tar_sha256": "ad37650fab7f8233ddc7f5b114096c829fa65d43392290ec626ac6a695d83b48",
+      "bundle_verified": true,
+      "bundle_sha256": "3abf92e2b5b6f0e9ee0c7c852c92f8494c8b7cd8ac799c6a3c77b0b63b57aef3"
+    }
+  ],
+  "probe_cleanup": [
+    {
+      "role": "general",
+      "status": "archived_and_removed",
+      "files_verified": 28,
+      "archive_sha256": "3105beaa9341585bfdca9314888e5be770d4dd8e5076dd4eeebb8719abd91e2f",
+      "bundle_sha256": "0adc0195c3b3a213595fd7eebed6b9550ef0f44c7c5f8b253690b7447fe0731d",
+      "recovery_head": "ff9e34a572abde2f7e78203916711f8de06dae97",
+      "bundle_verified": true
+    },
+    {
+      "role": "review",
+      "status": "archived_and_removed",
+      "files_verified": 28,
+      "archive_sha256": "9dfca26aad4c50b3050179045585f6bd2842383218c7868cfdcef340394347b0",
+      "bundle_sha256": "64d5d452f6ec6d6fde384539b7960d9469caddc3fa9fc11007b83dfbf8f13c3f",
+      "recovery_head": "a2993ea44abcfae8caf96bcec3f6a1301eb31d6b",
+      "bundle_verified": true
+    }
+  ],
+  "caveats": [
+    "No compactions occurred in the paid round; the isolated local-only probe establishes summary routing, not long-session quality.",
+    "One paid round does not establish repeatability or generalize to a long production session.",
+    "Compaction figures are already included in request-model seat totals; genuinely unexplained aggregate maintenance remains separate.",
+    "Cached local traffic can dilute cloud share without reducing absolute cloud spend; report elapsed time and acceptance separately.",
+    "Profile, fixture, budget and permission rules stayed frozen throughout this round. Offline accounting gained a native-compaction bypass regression during execution; the final report was regenerated from sealed final evidence.",
+    "Real-work canonical manifests supplement benchmark evidence; the frozen benchmark patch digest, no-new-files scope and historical acceptance rules are unchanged."
+  ]
+}
