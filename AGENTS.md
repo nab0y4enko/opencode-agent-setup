@@ -59,6 +59,31 @@ otherwise. Last it runs `opencode debug agents --standalone` and exits non-zero 
 `explore` use the local model, `hybrid` and `review` inherit the cloud model, every step limit
 matches and the three shell roles may run a wrapped command. Rerun it after changing the profile.
 
+### Commit, push and recovery ownership
+
+The primary `hybrid` agent owns Git completion; workers and reviewers never commit.
+An implementation request authorizes committing and pushing accepted task changes unless the
+user or a more specific task contract forbids it. Frozen benchmark contracts retain their own
+completion rules. Do not commit every file or worker receipt separately: use coherent,
+independently checked and reviewed changes.
+
+1. Record the task branch, upstream and initial staged/unstaged state. Preserve unrelated work.
+2. Run the required checks and obtain an independent PASS bound to the exact task changes,
+   including new files. Passing tests alone do not approve semantics.
+3. Stage explicit task paths, inspect the staged diff and confirm its contents match the reviewed
+   snapshot. Exclude unrelated changes and secrets. Changes after review require revalidation
+   and a new verdict. Use a clear outcome-focused commit message with the check summary.
+   Keep hooks enabled and verify the resulting commit still contains the reviewed content.
+4. Push to the task branch without force, then verify the remote branch SHA equals the local
+   commit. Do not merge another branch or change remotes to work around a failure.
+5. Archive needed files, logs, ignored artifacts and detached histories outside completed task
+   worktrees; verify recovery before removing them. Preserve the primary checkout and unrelated
+   active work. Confirm no completed task worktrees remain.
+6. If checks or review still reject the change, preserve recoverable work and report it as
+   incomplete. If push or safe cleanup fails, report the exact remaining action. The final receipt
+   includes the commit SHA, verified remote branch, checks, review verdict and cleanup status;
+   never report completion with an omitted commit or an unverified push.
+
 ### Permissions
 
 The benchmark needs unrestricted shell for `hybrid`, `general` and `review`, as Codex has full
