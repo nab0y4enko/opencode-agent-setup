@@ -1,0 +1,100 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Without a provider, web search asks the user to pick one, which cancels unattended runs.
+  "websearch": { "provider": "random" },
+  // Long build logs fill the local worker's context and slow every later turn; the full output stays in a file.
+  "tool_output": { "max_lines": 400, "max_bytes": 30000 },
+  "providers": {
+    "splash": {
+      "name": "Splash",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "http://127.0.0.1:8000/v1"
+      },
+      "models": {
+        "worker": {
+          "name": "Splash Worker",
+          "modelID": "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF:IQ3_S",
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 262144
+          },
+          // Splash defaults to xhigh reasoning; variants pick effort per agent.
+          "variants": [
+            { "id": "lite", "body": { "reasoning_effort": "low" } },
+            // Low effort with a cap on thinking per reply; the engine closes thinking at the cap and answers.
+            { "id": "lite-1k", "body": { "reasoning_effort": "low", "thinking_token_budget": 1024 } },
+            { "id": "lite-512", "body": { "reasoning_effort": "low", "thinking_token_budget": 512 } },
+            { "id": "fast", "body": { "reasoning_effort": "medium" } },
+            { "id": "deep", "body": { "reasoning_effort": "xhigh" } }
+          ]
+        }
+      }
+    }
+  },
+  // The cloud orchestrator investigates, plans and reviews; two role agents on the local model implement and validate, one at a time.
+  "agents": {
+    "build": {
+      "model": "openai/gpt-6.2-sol#high",
+      "permissions": [
+        {
+          "action": "subagent",
+          "resource": "general",
+          "effect": "deny"
+        },
+        {
+          "action": "subagent",
+          "resource": "explore",
+          "effect": "deny"
+        }
+      ]
+    },
+    "implementer": {
+      "mode": "subagent",
+      "model": "splash/worker#lite-1k",
+      "steps": 120,
+      "description": "Implements one briefed change: code, the failing-first test, specs and docs, then runs the briefed checks and commits locally.",
+      "system": "You are a worker agent run by a primary orchestrator agent, on a local model. The user is away: never ask the user anything. Follow the Workers rules and Report format in AGENTS.md exactly. Read your brief file first and do only its scope; the brief overrides general habits. Be economical: batch reads and searches, keep notes and reports short, and stop as soon as the acceptance checks pass. Your role: implementation. Change only the files the brief names (and the docs and tests the brief requires), write the failing test first, run the briefed checks, and commit locally.",
+      "permissions": [
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "question",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ]
+    },
+    "validator": {
+      "mode": "subagent",
+      "model": "splash/worker#lite-512",
+      "steps": 40,
+      "description": "Independently re-runs the acceptance checks on the finished change and checks each changed sentence in specs and docs against the code. Edits nothing; reports failures with evidence.",
+      "system": "You are a worker agent run by a primary orchestrator agent, on a local model. The user is away: never ask the user anything. Follow the Workers rules and Report format in AGENTS.md exactly. Read your brief file first and do only its scope; the brief overrides general habits. Be economical: batch reads and searches, keep notes and reports short, and stop as soon as the acceptance checks pass. Your role: final validation. Edit nothing. Re-run the acceptance checks fresh, confirm the main test fails with the change reverted (use a scratch copy or git stash and restore), and check every changed behaviour sentence in specs and docs against the code.",
+      "permissions": [
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "question",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ]
+    }
+  }
+}

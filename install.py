@@ -1,246 +1,344 @@
-"""Install the Hybrid profile (config/opencode.json) into this Mac's OpenCode configuration.
+"""Install the Splash orchestrator profile on this Mac.
 
-  python3 install.py [--model <served id>] [--url http://127.0.0.1:8000/v1] [--key-file <path>]
-                     [--context N --output N] [--config-dir ~/.config/opencode] [--dry-run]
+  python3 install.py [--dry-run] [--skip-brew] [--no-splash] [--wait SECONDS] [--config-dir DIR]
 
-The profile is merged, never copied over: other providers, other agents, the selected cloud model and
-custom permission rules stay. Shell restrictions on hybrid, general and review are dropped (see
-AGENTS.md, Permissions). The oMLX key comes from --key-file, $OMLX_API_KEY or the existing omlx.key and
-is never printed. Limits come from the served model unless given. The previous file is kept as
-opencode.json.bak-<time>, and the result is checked with `opencode debug agents --standalone`.
+Steps, each skipped when already done:
+1. Homebrew: OpenCode 2 (anomalyco/tap/opencode-v2) and Splash (incoai/tap/splash-app, incoai/tap/splash).
+2. Splash: selects the worker model named in config/opencode.jsonc, starts the app and waits until the
+   model is served (the first start downloads it, about 90 GB).
+3. OpenCode: writes config/opencode.jsonc and config/AGENTS.md into ~/.config/opencode. Files that
+   differ are first moved to backup-<time>/ there.
+4. Checks: `opencode debug agents` routes every role to its configured model, Splash honours the thinking
+   cap, and an OpenAI login exists. Signing in (`opencode auth login`) is the one step left to you.
+
+Exit status: 0 when everything is ready, 2 when only manual steps remain, 1 on an error.
 """
 import argparse
-import copy
-import difflib
 import json
-import os
+
+import platform
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(REPO_ROOT / 'benchmarks'))
-import permissions as P
-
-PROFILE = REPO_ROOT / 'config' / 'opencode.json'
-MODEL_REF = '{file:./local-model.txt}'
-LOCAL_MODEL = f'omlx/{MODEL_REF}'
-DEFAULT_URL = 'http://127.0.0.1:8000/v1'
-MAX_OUTPUT = 32768
-SHELL_ROLES = ('hybrid', 'general', 'review')
-LOCAL_ROLES = ('general', 'explore', 'compaction')
-CLOUD_ROLES = ('hybrid', 'review')
-# Rules earlier profile versions installed; a reinstall removes them so they cannot outlive the profile.
-LEGACY_RULES = {'general': [{'action': 'skill', 'resource': '*', 'effect': 'deny'}]}
-_SECRET = re.compile(r'("[^"]*(?:key|token|secret|password)[^"]*"\s*:\s*)"(?!\{file:)[^"]*"', re.I)
+PROFILE = REPO_ROOT / 'config' / 'opencode.jsonc'
+RULES = REPO_ROOT / 'config' / 'AGENTS.md'
+INSTALLED_NAMES = {PROFILE: 'opencode.jsonc', RULES: 'AGENTS.md'}
+# A plain opencode.json would be merged with the profile, so it is moved aside with the other files.
+REPLACED = ('opencode.json', 'opencode.jsonc', 'AGENTS.md')
+TAPS = ('anomalyco/tap', 'incoai/tap')
+FORMULAE = ('anomalyco/tap/opencode-v2', 'incoai/tap/splash')
+CASKS = ('incoai/tap/splash-app',)
+SPLASH_APP = 'Splash'
+SPLASH_DOMAIN = 'ai.inco.splash'
+CLOUD_PROVIDER = 'openai'
 
 
 class SetupError(Exception):
     pass
 
 
-def load_json(path):
+def parse_jsonc(text):
+    """JSON with // and /* */ comments, the format OpenCode reads."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        ch = text[i]
+        if ch == '"':
+            j = i + 1
+            while j < n and text[j] != '"':
+                j += 2 if text[j] == '\\' else 1
+            out.append(text[i:j + 1])
+            i = j + 1
+        elif text.startswith('//', i):
+            i = text.find('\n', i)
+            i = n if i < 0 else i
+        elif text.startswith('/*', i):
+            end = text.find('*/', i + 2)
+            if end < 0:
+                raise SetupError('unterminated /* comment')
+            i = end + 2
+        else:
+            out.append(ch)
+            i += 1
     try:
-        return json.loads(Path(path).read_text(encoding='utf-8'))
+        return json.loads(''.join(out))
     except ValueError as exc:
-        raise SetupError(f'{path} is not strict JSON (JSONC is unsupported): {exc}') from exc
+        raise SetupError(f'profile is not valid JSONC: {exc}') from exc
 
 
-def read_text(path):
-    path = Path(path)
-    return path.read_text(encoding='utf-8').strip() if path.is_file() else None
+def parse_model_ref(ref):
+    """'provider/model#variant' -> (provider, model, variant or None)."""
+    match = re.fullmatch(r'([^/#]+)/([^#]+)(?:#(.+))?', ref or '')
+    if not match:
+        raise SetupError(f'bad model reference: {ref!r}')
+    return match.group(1), match.group(2), match.group(3)
 
 
-def served_models(url, key, timeout=10):
-    """The models oMLX serves, as {id: max_model_len or None}."""
-    request = urllib.request.Request(url.rstrip('/') + '/models', headers={'Authorization': f'Bearer {key}'})
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            body = json.loads(response.read().decode('utf-8'))
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        raise SetupError(f'cannot list models at {url}: {exc}') from exc
-    return {m['id']: m.get('max_model_len') for m in body.get('data') or [] if isinstance(m, dict) and m.get('id')}
+def load_profile(path=PROFILE):
+    return parse_jsonc(Path(path).read_text(encoding='utf-8'))
 
 
-def choose_model(requested, previous, served):
-    if requested or previous:
-        model = requested or previous
-        if served and model not in served:
-            raise SetupError(f'oMLX does not serve {model!r}; it serves {sorted(served)}')
-        return model
-    if len(served) == 1:
-        return next(iter(served))
-    raise SetupError(f'choose the local model with --model; oMLX serves {sorted(served) or "nothing"}')
+def expected_routes(profile):
+    """{agent name: (provider, model, variant)} for every agent the profile pins to a model."""
+    return {name: parse_model_ref(agent['model'])
+            for name, agent in profile.get('agents', {}).items() if agent.get('model')}
 
 
-def choose_limits(context, output, max_model_len, profile_limit):
-    """Context is the served length unless given; output is a quarter of it, at most 32,768."""
-    context = context or max_model_len or profile_limit['context']
-    output = output or min(MAX_OUTPUT, context // 4)
-    if output >= context:
-        raise SetupError(f'output limit {output} must be below the context limit {context}')
-    return {'context': context, 'output': output}
+def worker_model(profile):
+    """(base URL, served model ID) of the local provider the workers use."""
+    providers = profile.get('providers', {})
+    for provider, model, _ in expected_routes(profile).values():
+        if provider in providers:
+            settings = providers[provider]
+            return settings['settings']['baseURL'].rstrip('/'), settings['models'][model]['modelID']
+    raise SetupError('no agent uses a local provider defined in the profile')
 
 
-def _keep_rule(agent, rule, profile_rules):
-    if rule in profile_rules or rule in LEGACY_RULES.get(agent, []):
-        return False
-    return not (agent in SHELL_ROLES and rule.get('action') == 'shell' and rule.get('effect') != 'allow')
+def thinking_cap(profile):
+    """(served model ID, variant body) of the first local variant that caps thinking."""
+    providers = profile.get('providers', {})
+    for provider, model, variant in expected_routes(profile).values():
+        if provider in providers:
+            entry = providers[provider]['models'][model]
+            for item in entry.get('variants', []):
+                if item['id'] == variant and 'thinking_token_budget' in item['body']:
+                    return entry['modelID'], item['body']
+    return None
 
 
-def merge(installed, profile, model_id, limits):
-    """The installed config with the profile applied; everything the profile does not own is kept."""
-    out = copy.deepcopy(installed)
-    for key in ('$schema', 'default_agent'):
-        out[key] = profile[key]
-    source = copy.deepcopy(profile['providers']['omlx'])
-    entry = dict(source.pop('models')[MODEL_REF], name=model_id, limit=limits)
-    current = (out.setdefault('providers', {}).get('omlx') or {})
-    models = {k: v for k, v in (current.get('models') or {}).items() if k != MODEL_REF}
-    models[model_id] = entry
-    out['providers']['omlx'] = dict(current, **source, models=models)
-    agents = out.setdefault('agents', {})
-    for name, wanted in profile['agents'].items():
-        agent = dict(agents.get(name) or {})
-        if name in CLOUD_ROLES:
-            agent.pop('model', None)
-        profile_rules = wanted.get('permissions') or []
-        custom = [r for r in agent.pop('permissions', None) or [] if _keep_rule(name, r, profile_rules)]
-        agent.update({k: copy.deepcopy(v) for k, v in wanted.items() if k != 'permissions'})
-        # Custom rules first, so the profile's role boundaries are the last match and win.
-        if custom or profile_rules:
-            agent['permissions'] = custom + copy.deepcopy(profile_rules)
-        agents[name] = agent
-    return out
+def brew_plan(taps, formulae, casks):
+    """The brew commands still needed, given what is installed."""
+    plan = [['brew', 'tap', tap] for tap in TAPS if tap not in taps]
+    plan += [['brew', 'install', name] for name in FORMULAE if name.rsplit('/', 1)[-1] not in formulae]
+    plan += [['brew', 'install', '--cask', name] for name in CASKS if name.rsplit('/', 1)[-1] not in casks]
+    return plan
 
 
-def check_agents(listing, profile, model_id):
-    """Problems in `opencode debug agents --standalone` output; an empty list means installed as intended."""
-    if not isinstance(listing, list):
-        return ['OpenCode did not list its agents']
-    by_id = {a.get('id'): a for a in listing if isinstance(a, dict)}
+def plan_files(config_dir, sources=None):
+    """(files to move to the backup, files to write) for the OpenCode configuration directory."""
+    sources = sources or INSTALLED_NAMES
+    config_dir = Path(config_dir)
+    wanted = {name: Path(src).read_bytes() for src, name in sources.items()}
+    move, write = [], []
+    for name in REPLACED:
+        target = config_dir / name
+        if target.exists() and target.read_bytes() != wanted.get(name):
+            move.append(target)
+    for name, data in wanted.items():
+        target = config_dir / name
+        if not target.exists() or target.read_bytes() != data or target in move:
+            write.append((target, data))
+    return move, write
+
+
+def apply_files(config_dir, move, write, stamp):
+    if move:
+        backup = Path(config_dir) / f'backup-{stamp}'
+        backup.mkdir(parents=True, exist_ok=True)
+        for path in move:
+            shutil.move(str(path), str(backup / path.name))
+    Path(config_dir).mkdir(parents=True, exist_ok=True)
+    for path, data in write:
+        path.write_bytes(data)
+
+
+def route_problems(listing, routes):
+    """Mismatches between `opencode debug agents` output and the profile's routes."""
+    by_name = {}
+    for agent in listing:
+        by_name[agent.get('name', '').lower()] = agent
     problems = []
-    for name, wanted in profile['agents'].items():
-        agent = by_id.get(name)
+    for name, (provider, model, variant) in sorted(routes.items()):
+        agent = by_name.get(name.lower())
         if agent is None:
-            problems.append(f'OpenCode lists no {name} agent')
+            problems.append(f'{name}: missing from opencode debug agents')
             continue
-        model = agent.get('model') or {}
-        if name in LOCAL_ROLES and (model.get('providerID'), model.get('id')) != ('omlx', model_id):
-            problems.append(f'{name} runs on {model or "the caller model"}, not omlx/{model_id}')
-        if name in CLOUD_ROLES and model:
-            problems.append(f'{name} pins {model}; it must inherit the selected cloud model')
-        if 'steps' in wanted and agent.get('steps') != wanted['steps']:
-            problems.append(f'{name} has {agent.get("steps")} steps, the profile sets {wanted["steps"]}')
-        if name in SHELL_ROLES:
-            rules = agent.get('permissions') or agent.get('permission') or []
-            for part in P.command_parts(P.PROBE_COMMAND):
-                effect, rule = P.decide(rules, 'shell', part)
-                if effect != 'allow':
-                    problems.append(f'{name} would {effect} `{part}` (rule {rule}); {P.FIX}')
-                    break
+        got = agent.get('model') or {}
+        actual = (got.get('providerID'), got.get('id'), got.get('variant'))
+        if actual != (provider, model, variant):
+            problems.append(f'{name}: routed to {actual}, expected {(provider, model, variant)}')
     return problems
 
 
-def effective_agents(binary):
-    with tempfile.TemporaryDirectory() as empty:
-        proc = subprocess.run([binary, 'debug', 'agents', '--standalone'], cwd=empty, env=dict(os.environ, PWD=empty),
-                              stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60, check=False)
-    if proc.returncode:
-        raise SetupError(f'`{binary} debug agents --standalone` failed: {(proc.stderr or proc.stdout).strip()[:300]}')
+def has_login(auth_listing, provider=CLOUD_PROVIDER):
+    """True when `opencode auth list` shows a stored credential for the provider."""
+    for line in auth_listing.splitlines():
+        words = line.split()
+        if words and words[0].lower() == provider and 'stored' in (w.lower() for w in words[1:]):
+            return True
+    return False
+
+
+def run(cmd, dry_run=False, check=True, **kwargs):
+    print('  $ ' + ' '.join(cmd))
+    if dry_run:
+        return subprocess.CompletedProcess(cmd, 0, '', '')
+    proc = subprocess.run(cmd, text=True, capture_output=True, **kwargs)
+    if check and proc.returncode != 0:
+        raise SetupError(f'{cmd[0]} failed ({proc.returncode}): {(proc.stderr or proc.stdout).strip()[-400:]}')
+    return proc
+
+
+def output(cmd):
+    return subprocess.run(cmd, text=True, capture_output=True, check=False).stdout
+
+
+def served_models(base_url, timeout=5):
     try:
-        return json.loads(proc.stdout)
-    except ValueError as exc:
-        raise SetupError(f'`{binary} debug agents --standalone` did not print JSON: {exc}') from exc
+        with urllib.request.urlopen(base_url + '/models', timeout=timeout) as resp:
+            return [m['id'] for m in json.load(resp).get('data', [])]
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
 
 
-def redacted_diff(before, after, path):
-    lines = difflib.unified_diff(before.splitlines(), after.splitlines(), str(path), f'{path} (new)', n=1, lineterm='')
-    return '\n'.join(_SECRET.sub(r'\1"***"', line) for line in lines)
+def chat(base_url, body, timeout=300):
+    request = urllib.request.Request(base_url + '/chat/completions', json.dumps(body).encode(),
+                                     {'content-type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=timeout) as resp:
+        return json.load(resp)
 
 
-def write_private(path, text):
-    path.write_text(text, encoding='utf-8')
-    path.chmod(0o600)
+def step_brew(args):
+    print('1. Homebrew packages')
+    if args.skip_brew:
+        print('  skipped (--skip-brew)')
+        return
+    if not shutil.which('brew'):
+        raise SetupError('Homebrew is required: https://brew.sh')
+    taps = output(['brew', 'tap']).split()
+    formulae = output(['brew', 'list', '--formula', '-1']).split()
+    casks = output(['brew', 'list', '--cask', '-1']).split()
+    plan = brew_plan(taps, formulae, casks)
+    if not plan:
+        print('  OpenCode 2 and Splash are installed')
+    for cmd in plan:
+        run(cmd, args.dry_run)
 
 
-def install(args):
-    config_dir = Path(args.config_dir).expanduser()
-    target = config_dir / 'opencode.json'
-    profile = load_json(PROFILE)
-    installed = load_json(target) if target.exists() else {}
-    url = args.url or read_text(config_dir / 'omlx-url.txt') or DEFAULT_URL
-    key = (read_text(Path(args.key_file).expanduser()) if args.key_file else None) \
-        or os.environ.get('OMLX_API_KEY') or read_text(config_dir / 'omlx.key')
-    if not key:
-        raise SetupError('no oMLX key: pass --key-file, set OMLX_API_KEY, or create omlx.key')
-    try:
-        served = served_models(url, key)
-    except SetupError as exc:
-        if not (args.model and args.context):
-            raise SetupError(f'{exc}; start oMLX, or pass --model and --context to install offline') from exc
-        print(f'warning: {exc}; using the given model and limits', file=sys.stderr)
-        served = {}
-    model = choose_model(args.model, read_text(config_dir / 'local-model.txt'), served)
-    limits = choose_limits(args.context, args.output, served.get(model),
-                           profile['providers']['omlx']['models'][MODEL_REF]['limit'])
-    merged = merge(installed, profile, model, limits)
-    before = json.dumps(installed, indent=2, ensure_ascii=False) + '\n' if installed else ''
-    after = json.dumps(merged, indent=2, ensure_ascii=False) + '\n'
-    print(f'local model {model} at {url}, context {limits["context"]}, output {limits["output"]}')
+def step_splash(args, profile):
+    print('2. Splash and the worker model')
+    base_url, model_id = worker_model(profile)
+    if args.no_splash:
+        print('  skipped (--no-splash)')
+        return True
+    served = served_models(base_url)
+    if served is not None and model_id in served:
+        print(f'  serving {model_id}')
+        return True
+    selected = output(['defaults', 'read', SPLASH_DOMAIN, 'model']).strip()
+    if selected != model_id:
+        run(['defaults', 'write', SPLASH_DOMAIN, 'model', '-string', model_id], args.dry_run)
+    if served is not None:
+        print(f'  Splash serves {served}; restarting it with {model_id}')
+        run(['osascript', '-e', f'quit app "{SPLASH_APP}"'], args.dry_run, check=False)
+        if not args.dry_run:
+            time.sleep(5)
+    run(['open', '-a', SPLASH_APP], args.dry_run)
     if args.dry_run:
-        print(redacted_diff(before, after, target) or 'opencode.json: no change')
+        return True
+    print(f'  waiting up to {args.wait} s for {model_id} (the first start downloads it)')
+    deadline = time.monotonic() + args.wait
+    while time.monotonic() < deadline:
+        served = served_models(base_url)
+        if served is not None and model_id in served:
+            print(f'  serving {model_id}')
+            return True
+        time.sleep(15)
+    print(f'  NOT READY: Splash does not serve {model_id} yet. Open Splash, let the download finish, '
+          f'then rerun this installer.')
+    return False
+
+
+def step_config(args):
+    print(f'3. OpenCode configuration in {args.config_dir}')
+    move, write = plan_files(args.config_dir)
+    if not move and not write:
+        print('  up to date')
+        return
+    stamp = time.strftime('%Y%m%d-%H%M%S')
+    for path in move:
+        print(f'  back up {path.name} -> backup-{stamp}/')
+    for path, _ in write:
+        print(f'  write {path.name}')
+    if not args.dry_run:
+        apply_files(args.config_dir, move, write, stamp)
+
+
+def step_checks(args, profile, splash_ready):
+    print('4. Checks')
+    if args.dry_run:
+        print('  skipped (--dry-run)')
         return []
-    config_dir.mkdir(parents=True, exist_ok=True)
-    if before != after:
-        if target.exists():
-            backup = target.with_name(f'opencode.json.bak-{time.strftime("%Y%m%d-%H%M%S")}')
-            shutil.copy2(target, backup)
-            print(f'previous config kept as {backup}')
-        target.write_text(after, encoding='utf-8')
-        print(f'wrote {target}')
+    if not shutil.which('opencode'):
+        raise SetupError('opencode is not on PATH')
+    if Path(args.config_dir).expanduser() != DEFAULT_CONFIG_DIR:
+        print('  skipped: OpenCode reads ~/.config/opencode, not --config-dir')
+        return []
+    proc = subprocess.run(['opencode', 'debug', 'agents'], text=True, capture_output=True, check=False)
+    try:
+        listing = json.loads(proc.stdout)
+    except ValueError as exc:
+        raise SetupError(f'opencode debug agents did not print JSON: {(proc.stderr or proc.stdout)[-400:]}') from exc
+    problems = route_problems(listing, expected_routes(profile))
+    if problems:
+        raise SetupError('agent routing does not match the profile: ' + '; '.join(problems))
+    for name, ref in sorted(expected_routes(profile).items()):
+        print(f'  {name}: {ref[0]}/{ref[1]}#{ref[2]}')
+    remaining = []
+    cap = thinking_cap(profile)
+    if splash_ready and cap:
+        base_url, _ = worker_model(profile)
+        model_id, body = cap
+        budget = body['thinking_token_budget']
+        reply = chat(base_url, dict(body, model=model_id, max_tokens=budget + 1500, messages=[{
+            'role': 'user', 'content': 'How many prime numbers are between 100 and 200? Think, then answer.'}]))
+        used = ((reply.get('usage') or {}).get('completion_tokens_details') or {}).get('reasoning_tokens')
+        if used is None or used > budget + 8:
+            raise SetupError(f'Splash ignored the thinking cap: {used} reasoning tokens for a budget of {budget}')
+        print(f'  thinking cap holds: {used} of {budget} tokens')
+    elif not splash_ready:
+        remaining.append('Let Splash finish downloading the worker model, then rerun python3 install.py')
+    if has_login(output(['opencode', 'auth', 'list'])):
+        print(f'  {CLOUD_PROVIDER} login found')
     else:
-        print(f'{target} already matches the profile')
-    (config_dir / 'local-model.txt').write_text(model + '\n', encoding='utf-8')
-    (config_dir / 'omlx-url.txt').write_text(url + '\n', encoding='utf-8')
-    write_private(config_dir / 'omlx.key', key + '\n')
-    if args.skip_verify:
-        return []
-    binary = shutil.which(args.opencode_bin)
-    if not binary:
-        raise SetupError(f'{args.opencode_bin!r} is not on PATH; install OpenCode, then rerun to verify')
-    return check_agents(effective_agents(binary), profile, model)
+        remaining.append(f'Sign in to the cloud model: opencode auth login {CLOUD_PROVIDER}')
+    return remaining
+
+
+DEFAULT_CONFIG_DIR = Path.home() / '.config' / 'opencode'
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--config-dir', default='~/.config/opencode')
-    parser.add_argument('--model', help='served local model ID (default: the installed one, or the only one served)')
-    parser.add_argument('--url', help=f'oMLX base URL (default: the installed one, or {DEFAULT_URL})')
-    parser.add_argument('--key-file', help='file holding the oMLX API key')
-    parser.add_argument('--context', type=int, help='local context limit (default: the served length)')
-    parser.add_argument('--output', type=int, help=f'local output limit (default: context/4, at most {MAX_OUTPUT})')
-    parser.add_argument('--opencode-bin', default='opencode')
-    parser.add_argument('--dry-run', action='store_true', help='print the redacted change and write nothing')
-    parser.add_argument('--skip-verify', action='store_true')
+    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    parser.add_argument('--dry-run', action='store_true', help='print what would change; change nothing')
+    parser.add_argument('--skip-brew', action='store_true', help='do not install or check Homebrew packages')
+    parser.add_argument('--no-splash', action='store_true', help='do not configure or start Splash')
+    parser.add_argument('--wait', type=int, default=3600, help='seconds to wait for the worker model (default 3600)')
+    parser.add_argument('--config-dir', type=Path, default=DEFAULT_CONFIG_DIR, help='OpenCode configuration directory')
     args = parser.parse_args(argv)
     try:
-        problems = install(args)
+        if platform.system() != 'Darwin' or platform.machine() != 'arm64':
+            raise SetupError('this profile needs an Apple silicon Mac')
+        profile = load_profile()
+        step_brew(args)
+        splash_ready = step_splash(args, profile)
+        step_config(args)
+        remaining = step_checks(args, profile, splash_ready)
     except SetupError as exc:
-        print(f'error: {exc}', file=sys.stderr)
+        print(f'ERROR: {exc}', file=sys.stderr)
         return 1
-    for problem in problems:
-        print(f'problem: {problem}', file=sys.stderr)
-    if problems:
-        return 1
-    if not args.dry_run:
-        print('installed. If this Mac has no cloud login yet, run `opencode auth login`.')
+    if remaining:
+        print('\nAlmost done. Remaining:')
+        for item in remaining:
+            print(f'  - {item}')
+        return 2
+    print('\nReady. Start with: opencode')
     return 0
 
 
