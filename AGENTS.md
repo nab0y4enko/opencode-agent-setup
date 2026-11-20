@@ -23,7 +23,7 @@ global `~/.config/opencode/AGENTS.md`, the orchestration rules every session rea
 |---|---|---|---|
 | `build` (primary) | `openai/gpt-6.2-sol#high` | investigate, decide, brief, review | may not call `general` or `explore` |
 | `implementer` | `splash/worker#lite-1k` | one briefed change: code, test, docs, local commit | 120 steps; low effort, ≤1,024 thinking tokens per reply; no subagents, no questions |
-| `validator` | `splash/worker#lite-512` | independent re-check; edits nothing | 40 steps; low effort, ≤512 thinking tokens per reply; no subagents, no questions |
+| `validator` | `splash/worker#lite-512` | independent re-check in one pass; edits only its report | 80 steps; low effort, ≤512 thinking tokens per reply; no subagents, no questions |
 | `title` | chosen by OpenCode (`gpt-6-luna`) | names sessions | — |
 
 Other settings: `websearch.provider: random` (otherwise web search asks a question and cancels an
@@ -77,6 +77,9 @@ What moved the numbers:
   local tokens by up to 40% with no quality loss.
 - A local investigator was slow; the cloud orchestrator investigating directly halved that phase,
   but needs the rule "test the existing mechanism before replacing it" or it skips the experiment.
+- On a larger change (21 files, checks generated for four platforms) a 40-step validator ran out
+  twice before writing its report, and regressions surfaced one validation round at a time: 6.5 h
+  wall time. Hence 80 validator steps, report written first, and one-pass validation.
 - oMLX was about 30% slower per token than Splash here, and its memory guard rejected long prompts
   while Xcode was building, so Splash stays.
 

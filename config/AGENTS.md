@@ -25,6 +25,8 @@
 - Do not pause between tasks. Never merge, push, publish or take a destructive or irreversible action the user did not ask for: skip it, finish everything else, and list it in the final report. If the plan is too broken to continue, end with a report that says so and what is needed, not a question.
 - In review, spot-check every added or changed sentence in specs, rules or docs that says what the code does, where something is drawn, or which platform does it, against the code itself (including `#if os(...)` guards). Passing tests do not prove prose.
 - Finish the whole review before sending anything back, then send every required fix to the worker in one follow-up message. Do not send fixes one at a time as you find them.
+- Brief the validator once with the complete check set, so it finds every failure in one pass; fix them in one implementer round and re-validate only what changed. The implementer's acceptance checks include every test the change's platform runs, not only the new one, so validation does not uncover regressions one round at a time.
+- When a worker stops at its step limit, resume it to finish its work and report; do not write its report or finish its edits yourself.
 - At the end, review the whole diff once and read the validator's fresh check output. Send back substantive issues only; do not ask for wording or count clarifications that the report format already covers.
 
 ## Workers

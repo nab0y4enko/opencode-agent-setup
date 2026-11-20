@@ -48,6 +48,16 @@ class ProfileTest(unittest.TestCase):
             self.assertNotRegex(text, r'sk-[A-Za-z0-9-]{8,}', path.name)
             self.assertNotRegex(text, re.compile(r'"api_?key"\s*:', re.I), path.name)
 
+    def test_validator_can_finish_a_full_check_matrix(self):
+        # A 40-step validator stopped twice before writing its report on a four-platform check set.
+        self.assertGreaterEqual(self.profile['agents']['validator']['steps'], 80)
+        self.assertIn('report file first', self.profile['agents']['validator']['system'])
+
+    def test_rules_ask_for_one_pass_validation(self):
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('every failure in one pass', rules)
+        self.assertIn('resume it to finish', rules)
+
     def test_worker_prompts_point_at_the_rules_file(self):
         rules = install.RULES.read_text(encoding='utf-8')
         for heading in ('## Workers', '## Report format'):

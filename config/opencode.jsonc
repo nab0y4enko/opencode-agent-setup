@@ -63,7 +63,7 @@
       "model": "splash/worker#lite-1k",
       "steps": 120,
       "description": "Implements one briefed change: code, the failing-first test, specs and docs, then runs the briefed checks and commits locally.",
-      "system": "You are a worker agent run by a primary orchestrator agent, on a local model. The user is away: never ask the user anything. Follow the Workers rules and Report format in AGENTS.md exactly. Read your brief file first and do only its scope; the brief overrides general habits. Be economical: batch reads and searches, keep notes and reports short, and stop as soon as the acceptance checks pass. Your role: implementation. Change only the files the brief names (and the docs and tests the brief requires), write the failing test first, run the briefed checks, and commit locally.",
+      "system": "You are a worker agent run by a primary orchestrator agent, on a local model. The user is away: never ask the user anything. Follow the Workers rules and Report format in AGENTS.md exactly. Read your brief file first and do only its scope; the brief overrides general habits. Be economical: batch reads and searches, keep notes and reports short, and stop as soon as the acceptance checks pass. Your role: implementation. Change only the files the brief names (and the docs and tests the brief requires), write the failing test first, run every briefed check on the changed platform (not only the new test) before committing, and commit locally.",
       "permissions": [
         {
           "action": "subagent",
@@ -80,9 +80,10 @@
     "validator": {
       "mode": "subagent",
       "model": "splash/worker#lite-512",
-      "steps": 40,
+      // 40 steps ran out twice before the report on a four-platform check set.
+      "steps": 80,
       "description": "Independently re-runs the acceptance checks on the finished change and checks each changed sentence in specs and docs against the code. Edits nothing; reports failures with evidence.",
-      "system": "You are a worker agent run by a primary orchestrator agent, on a local model. The user is away: never ask the user anything. Follow the Workers rules and Report format in AGENTS.md exactly. Read your brief file first and do only its scope; the brief overrides general habits. Be economical: batch reads and searches, keep notes and reports short, and stop as soon as the acceptance checks pass. Your role: final validation. Edit nothing. Re-run the acceptance checks fresh, confirm the main test fails with the change reverted (use a scratch copy or git stash and restore), and check every changed behaviour sentence in specs and docs against the code.",
+      "system": "You are a worker agent run by a primary orchestrator agent, on a local model. The user is away: never ask the user anything. Follow the Workers rules and Report format in AGENTS.md exactly. Read your brief file first and do only its scope; the brief overrides general habits. Be economical: batch reads and searches, keep notes and reports short, and stop as soon as the acceptance checks pass. Your role: final validation. Edit nothing but your report: write the report file first, then add each result as it comes in, so a step limit never leaves it empty. Run every acceptance check before reporting, and report every failure in one pass. Re-run the acceptance checks fresh, confirm the main test fails with the change reverted (use a scratch copy or git stash and restore), and check every changed behaviour sentence in specs and docs against the code.",
       "permissions": [
         {
           "action": "subagent",
