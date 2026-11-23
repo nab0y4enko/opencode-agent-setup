@@ -7,7 +7,8 @@ Steps, each skipped when already done:
 2. Splash: selects the worker model named in config/opencode.jsonc, starts the app and waits until the
    model is served (the first start downloads it, about 90 GB).
 3. OpenCode: writes config/opencode.jsonc and config/AGENTS.md into ~/.config/opencode. Files that
-   differ are first moved to backup-<time>/ there.
+   differ are first moved to backup-<time>/ there; top-level keys of the installed opencode.jsonc that
+   the profile does not define (a local `mcp` block, say) are kept in the new file.
 4. Checks: `opencode debug agents` routes every role to its configured model, Splash honours the thinking
    cap, and an OpenAI login exists. Signing in (`opencode auth login`) is the one step left to you.
 
@@ -120,11 +121,38 @@ def brew_plan(taps, formulae, casks):
     return plan
 
 
+def with_local_keys(profile_text, installed_text):
+    """The profile text plus the installed file's top-level keys the profile does not define.
+
+    Local additions such as an `mcp` block hold machine paths, so they live only in the installed file;
+    OpenCode reads a single global opencode.jsonc, so they are carried into the file that replaces it.
+    """
+    try:
+        installed = parse_jsonc(installed_text)
+    except SetupError:
+        return profile_text
+    profile = parse_jsonc(profile_text)
+    extra = {k: v for k, v in installed.items() if k not in profile} if isinstance(installed, dict) else {}
+    if not extra:
+        return profile_text
+    body = profile_text.rstrip()
+    if not body.endswith('}'):
+        raise SetupError('profile must be a JSON object')
+    body = body[:-1].rstrip()
+    lines = [f'  {json.dumps(k)}: ' + json.dumps(v, indent=2).replace('\n', '\n  ') for k, v in extra.items()]
+    sep = ',' if profile else ''
+    return body + sep + '\n  // Local additions kept by install.py.\n' + ',\n'.join(lines) + '\n}\n'
+
+
 def plan_files(config_dir, sources=None):
     """(files to move to the backup, files to write) for the OpenCode configuration directory."""
     sources = sources or INSTALLED_NAMES
     config_dir = Path(config_dir)
     wanted = {name: Path(src).read_bytes() for src, name in sources.items()}
+    installed = config_dir / 'opencode.jsonc'
+    if 'opencode.jsonc' in wanted and installed.exists():
+        wanted['opencode.jsonc'] = with_local_keys(wanted['opencode.jsonc'].decode('utf-8'),
+                                                   installed.read_text(encoding='utf-8')).encode('utf-8')
     move, write = [], []
     for name in REPLACED:
         target = config_dir / name

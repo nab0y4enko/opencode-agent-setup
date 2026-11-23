@@ -141,6 +141,19 @@ class FilesTest(unittest.TestCase):
         self.install_once('t3')
         self.assertEqual(install.plan_files(self.dest, self.sources), ([], []))
 
+    def test_local_top_level_keys_survive_install(self):
+        # A rerun moved a locally added MCP server (machine paths, so never in the profile) to the backup.
+        (self.src / 'p.jsonc').write_text('{\n  // profile\n  "new": true\n}\n')
+        self.dest.mkdir()
+        mcp = {'servers': {'browse': {'type': 'local', 'command': ['/opt/browse', 'mcp']}}}
+        (self.dest / 'opencode.jsonc').write_text(
+            '{"theme": "dark", "new": false, "mcp": ' + install.json.dumps(mcp) + '}')
+        self.install_once('t4')
+        written = (self.dest / 'opencode.jsonc').read_text()
+        self.assertEqual(install.parse_jsonc(written), {'new': True, 'theme': 'dark', 'mcp': mcp})
+        self.assertIn('// profile', written)
+        self.assertEqual(install.plan_files(self.dest, self.sources), ([], []))
+
 
 class ChecksTest(unittest.TestCase):
     ROUTES = {'build': ('openai', 'gpt-6.2-sol', 'high'), 'implementer': ('splash', 'worker', 'lite-1k')}
