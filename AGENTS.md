@@ -58,7 +58,8 @@ opencode auth login openai       # once per Mac; the installer reports when it i
 cask when missing; selects the worker model in Splash (`defaults write ai.inco.splash model …`),
 starts it and waits until the model is served (the first start downloads about 90 GB); writes the two
 configuration files and the skill, moving any differing `opencode.json`, `opencode.jsonc`, `AGENTS.md` or
-skill file to `backup-<time>/` first (local additions such as an `mcp` block go with them); then checks that `opencode debug agents` routes every role as configured, that
+skill file to `backup-<time>/` first and carrying over top-level keys the profile does not define, such as a
+local `mcp` block with machine paths (OpenCode 2.3.2 reads only this one global `opencode.jsonc`); then checks that `opencode debug agents` routes every role as configured, that
 Splash honours the thinking cap, and that an OpenAI login exists. Exit 0 means ready, 2 means only
 manual steps remain (they are listed), 1 an error. Rerun it after changing `config/`.
 
