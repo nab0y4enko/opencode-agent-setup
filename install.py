@@ -6,8 +6,8 @@ Steps, each skipped when already done:
 1. Homebrew: OpenCode 2 (anomalyco/tap/opencode-v2) and Splash (incoai/tap/splash-app, incoai/tap/splash).
 2. Splash: selects the worker model named in config/opencode.jsonc, starts the app and waits until the
    model is served (the first start downloads it, about 90 GB).
-3. OpenCode: writes config/opencode.jsonc and config/AGENTS.md into ~/.config/opencode. Files that
-   differ are first moved to backup-<time>/ there.
+3. OpenCode: writes config/opencode.jsonc, config/AGENTS.md and the skills in config/skills into
+   ~/.config/opencode. Files that differ are first moved to backup-<time>/ there.
 4. Checks: `opencode debug agents` routes every role to its configured model, Splash honours the thinking
    cap, and an OpenAI login exists. Signing in (`opencode auth login`) is the one step left to you.
 
@@ -29,7 +29,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 PROFILE = REPO_ROOT / 'config' / 'opencode.jsonc'
 RULES = REPO_ROOT / 'config' / 'AGENTS.md'
-INSTALLED_NAMES = {PROFILE: 'opencode.jsonc', RULES: 'AGENTS.md'}
+TICKETS = REPO_ROOT / 'config' / 'skills' / 'github-tickets' / 'SKILL.md'
+INSTALLED_NAMES = {PROFILE: 'opencode.jsonc', RULES: 'AGENTS.md', TICKETS: 'skills/github-tickets/SKILL.md'}
 # A plain opencode.json would be merged with the profile, so it is moved aside with the other files.
 REPLACED = ('opencode.json', 'opencode.jsonc', 'AGENTS.md')
 TAPS = ('anomalyco/tap', 'incoai/tap')
@@ -126,7 +127,7 @@ def plan_files(config_dir, sources=None):
     config_dir = Path(config_dir)
     wanted = {name: Path(src).read_bytes() for src, name in sources.items()}
     move, write = [], []
-    for name in REPLACED:
+    for name in dict.fromkeys(REPLACED + tuple(wanted)):
         target = config_dir / name
         if target.exists() and target.read_bytes() != wanted.get(name):
             move.append(target)
@@ -142,9 +143,11 @@ def apply_files(config_dir, move, write, stamp):
         backup = Path(config_dir) / f'backup-{stamp}'
         backup.mkdir(parents=True, exist_ok=True)
         for path in move:
-            shutil.move(str(path), str(backup / path.name))
-    Path(config_dir).mkdir(parents=True, exist_ok=True)
+            saved = backup / Path(path).relative_to(config_dir)
+            saved.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(path), str(saved))
     for path, data in write:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
 
@@ -263,9 +266,9 @@ def step_config(args):
         return
     stamp = time.strftime('%Y%m%d-%H%M%S')
     for path in move:
-        print(f'  back up {path.name} -> backup-{stamp}/')
+        print(f'  back up {path.relative_to(args.config_dir)} -> backup-{stamp}/')
     for path, _ in write:
-        print(f'  write {path.name}')
+        print(f'  write {path.relative_to(args.config_dir)}')
     if not args.dry_run:
         apply_files(args.config_dir, move, write, stamp)
 

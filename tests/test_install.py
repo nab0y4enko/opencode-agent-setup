@@ -42,7 +42,7 @@ class ProfileTest(unittest.TestCase):
         self.assertIn(':', model_id)
 
     def test_profile_has_no_machine_paths_or_secrets(self):
-        for path in (install.PROFILE, install.RULES):
+        for path in install.INSTALLED_NAMES:
             text = path.read_text(encoding='utf-8')
             self.assertNotRegex(text, r'/Users/|/home/', path.name)
             self.assertNotRegex(text, r'sk-[A-Za-z0-9-]{8,}', path.name)
@@ -57,6 +57,34 @@ class ProfileTest(unittest.TestCase):
         rules = install.RULES.read_text(encoding='utf-8')
         self.assertIn('every failure in one pass', rules)
         self.assertIn('resume it to finish', rules)
+
+    def test_rules_put_the_design_in_the_brief_and_split_large_changes(self):
+        # A poster change left its state design to the worker: three review rounds and three step-limit stops.
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('every edge case as a named test', rules)
+        self.assertIn('more than one platform', rules)
+        self.assertIn('numbered acceptance criteria', rules)
+
+    def test_workers_edit_instead_of_rewriting_and_trust_the_brief(self):
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('do not re-investigate', rules)
+        self.assertIn('never by rewriting the whole file', rules)
+
+    def test_a_reply_without_a_status_line_is_resumed(self):
+        # A worker printed a broken tool call as its final text and stopped with nothing committed.
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('does not start with a status line', rules)
+        self.assertIn('`STEP_LIMIT`', rules)
+
+    def test_orchestrator_keeps_github_issues_current_through_the_skill(self):
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('`github-tickets` skill', rules)
+        self.assertIn(install.TICKETS, install.INSTALLED_NAMES)
+        self.assertEqual(install.INSTALLED_NAMES[install.TICKETS], 'skills/github-tickets/SKILL.md')
+        skill = install.TICKETS.read_text(encoding='utf-8')
+        self.assertTrue(skill.startswith('---\nname: github-tickets\ndescription: '), 'skill front matter')
+        for needle in ('gh project item-edit', 'In review', 'Closes #', 'Workers never'):
+            self.assertIn(needle, skill)
 
     def test_worker_prompts_point_at_the_rules_file(self):
         rules = install.RULES.read_text(encoding='utf-8')
@@ -136,6 +164,17 @@ class FilesTest(unittest.TestCase):
         self.assertFalse((self.dest / 'opencode.json').exists())
         self.assertTrue((self.dest / 'service.json').exists(), 'unrelated files stay')
         self.assertEqual((self.dest / 'AGENTS.md').read_text(), '# new rules\n')
+
+    def test_nested_files_are_written_and_backed_up_with_their_path(self):
+        skill = self.src / 'skill.md'
+        skill.write_text('new skill\n')
+        self.sources[skill] = 'skills/tickets/SKILL.md'
+        self.install_once('t4')
+        self.assertEqual((self.dest / 'skills/tickets/SKILL.md').read_text(), 'new skill\n')
+        (self.dest / 'skills/tickets/SKILL.md').write_text('edited by hand\n')
+        self.install_once('t5')
+        self.assertEqual((self.dest / 'backup-t5/skills/tickets/SKILL.md').read_text(), 'edited by hand\n')
+        self.assertEqual((self.dest / 'skills/tickets/SKILL.md').read_text(), 'new skill\n')
 
     def test_second_run_changes_nothing(self):
         self.install_once('t3')

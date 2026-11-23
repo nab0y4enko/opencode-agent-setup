@@ -17,7 +17,11 @@ report files.
 ## The profile (`config/`)
 
 `config/opencode.jsonc` becomes `~/.config/opencode/opencode.jsonc`; `config/AGENTS.md` becomes the
-global `~/.config/opencode/AGENTS.md`, the orchestration rules every session reads.
+global `~/.config/opencode/AGENTS.md`, the orchestration rules every session reads;
+`config/skills/github-tickets/SKILL.md` becomes a global skill the orchestrator loads when a request
+names or asks it to choose a GitHub issue: it picks from the project board, moves the board Status
+(In progress → In review → Done) and comments at each milestone, and never closes an issue or links
+it so that a merge closes it. Project rules that limit GitHub changes still win.
 
 | agent | model | job | limits |
 |---|---|---|---|
@@ -36,6 +40,9 @@ Facts the profile depends on (checked on OpenCode 2.3.2 and Splash 1.7.0):
 - Splash reads `thinking_token_budget` per request and closes thinking at the cap; OpenCode passes a
   variant's `body` through unchanged. oMLX names the same field `thinking_budget`.
 - Role agents with `subagent` permissions fix the number of workers; rules in `AGENTS.md` alone did not.
+- OpenCode loads global skills from `skills/<name>/SKILL.md` in its configuration directory.
+- Splash's prompt cache keeps a worker step at 5–8 s and about 80 tokens/s from 50k to 220k tokens of
+  context, so long sessions cost steps and rework, not per-step speed.
 
 ## Install on a Mac
 
@@ -50,8 +57,8 @@ opencode auth login openai       # once per Mac; the installer reports when it i
 `install.py` installs `anomalyco/tap/opencode-v2`, `incoai/tap/splash` and the `incoai/tap/splash-app`
 cask when missing; selects the worker model in Splash (`defaults write ai.inco.splash model …`),
 starts it and waits until the model is served (the first start downloads about 90 GB); writes the two
-configuration files, moving any differing `opencode.json`, `opencode.jsonc` or `AGENTS.md` to
-`backup-<time>/` first; then checks that `opencode debug agents` routes every role as configured, that
+configuration files and the skill, moving any differing `opencode.json`, `opencode.jsonc`, `AGENTS.md` or
+skill file to `backup-<time>/` first (local additions such as an `mcp` block go with them); then checks that `opencode debug agents` routes every role as configured, that
 Splash honours the thinking cap, and that an OpenAI login exists. Exit 0 means ready, 2 means only
 manual steps remain (they are listed), 1 an error. Rerun it after changing `config/`.
 
@@ -80,6 +87,13 @@ What moved the numbers:
 - On a larger change (21 files, checks generated for four platforms) a 40-step validator ran out
   twice before writing its report, and regressions surfaced one validation round at a time: 6.5 h
   wall time. Hence 80 validator steps, report written first, and one-pass validation.
+- A poster change on four platforms took 72 min, 53 of them in one implementer: the brief left the
+  state design open, so three review rounds supplied it, the worker hit its step limit three times and
+  rewrote the new file seven times. Hence the orchestrator designs stateful changes itself (types,
+  invariants, edge cases as named tests), splits multi-platform changes into tasks, and briefs
+  numbered acceptance criteria; workers edit rather than rewrite and trust the brief's findings.
+- A worker once printed a broken tool call as its final text and stopped with nothing committed;
+  the orchestrator now resumes any reply without a status line once before investigating.
 - oMLX was about 30% slower per token than Splash here, and its memory guard rejected long prompts
   while Xcode was building, so Splash stays.
 
