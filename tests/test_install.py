@@ -88,6 +88,15 @@ class ProfileTest(unittest.TestCase):
         rules = install.RULES.read_text(encoding='utf-8')
         self.assertIn('never pass `background: true`', rules)
 
+    def test_two_lanes_only_when_one_never_builds(self):
+        # Splash kept three 54k-token sessions cached in parallel, but two simulator test runs at once
+        # killed each other, so a second lane may run only when it needs no build or simulator.
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertNotIn('parallel workers evict', rules)
+        self.assertIn('at most one of them builds', rules)
+        self.assertIn('own worktree', rules)
+        self.assertIn('without builds, never run', rules)
+
     def test_cleanup_keeps_briefs_and_reports(self):
         # A cleanup kept only logs and deleted the briefs, progress.md and the validation report.
         rules = install.RULES.read_text(encoding='utf-8')
