@@ -65,6 +65,27 @@ class ProfileTest(unittest.TestCase):
         self.assertIn('more than one platform', rules)
         self.assertIn('numbered acceptance criteria', rules)
 
+    def test_validator_reverts_only_in_a_scratch_worktree(self):
+        # A validator reverted files inside the task worktree and ran two simulator test runs at once,
+        # which killed both; the orchestrator had to stop it.
+        system = self.profile['agents']['validator']['system']
+        self.assertIn('git worktree add --detach', system)
+        self.assertNotIn('git stash', system)
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('never in the task worktree', rules)
+        self.assertIn('one test run per simulator', rules)
+
+    def test_split_counts_test_effort_and_stops_resuming_after_two_step_limits(self):
+        # A 5-source-file showcase with 1,100 lines of UI tests hit the step limit four times in five rounds.
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('more than about eight acceptance criteria', rules)
+        self.assertIn('second `STEP_LIMIT`', rules)
+
+    def test_cleanup_keeps_briefs_and_reports(self):
+        # A cleanup kept only logs and deleted the briefs, progress.md and the validation report.
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('keep every brief, report and `progress.md`', rules)
+
     def test_workers_edit_instead_of_rewriting_and_trust_the_brief(self):
         rules = install.RULES.read_text(encoding='utf-8')
         self.assertIn('do not re-investigate', rules)
