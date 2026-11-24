@@ -47,7 +47,7 @@
 - When a changed value can resolve differently per trait (light/dark, increased contrast, platform, idiom, size class), the test checks every variant the project supports.
 - Write each value once: no duplicate or redundant entries for the same thing.
 - Batch your lookups: one shell call may run several `rg`, `sed -n` or `git` commands. Do not spend a turn per small read or search.
-- Run builds and tests in the foreground with a timeout, and read the result when the call returns. Never `sleep` or poll to wait for a command.
+- Run builds and tests in the foreground with a timeout long enough for them, and read the result when the call returns; never pass `background: true` (a backgrounded command idles you and wakes the primary agent). Never `sleep` or poll to wait for a command.
 - Keep writing short. Reasoning, notes and comments go straight to the point. Commit messages stay under 15 lines.
 - When debugging, find the root cause before fixing: reproduce, then change one thing at a time. After three failed fixes, stop and report `BLOCKED` with what you tried instead of trying a fourth.
 - Do not claim anything passes, builds or is fixed without running the command fresh in this task and reading its full output and exit code.
