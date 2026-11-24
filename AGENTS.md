@@ -93,6 +93,11 @@ What moved the numbers:
   rewrote the new file seven times. Hence the orchestrator designs stateful changes itself (types,
   invariants, edge cases as named tests), splits multi-platform changes into tasks, and briefs
   numbered acceptance criteria; workers edit rather than rewrite and trust the brief's findings.
+- A two-issue tvOS Home change took 7.6 h: a showcase brief with five source files but about 1,100 lines of
+  UI tests hit the implementer's step limit four times, and the validator reverted files in the task worktree
+  and ran two simulator test runs at once. Hence test effort counts toward splitting, a second step-limit
+  stop means a smaller new task, revert proofs run in a detached scratch worktree, and cleanup keeps briefs
+  and reports.
 - A worker once printed a broken tool call as its final text and stopped with nothing committed;
   the orchestrator now resumes any reply without a status line once before investigating.
 - oMLX was about 30% slower per token than Splash here, and its memory guard rejected long prompts
