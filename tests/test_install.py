@@ -81,6 +81,13 @@ class ProfileTest(unittest.TestCase):
         self.assertIn('more than about eight acceptance criteria', rules)
         self.assertIn('second `STEP_LIMIT`', rules)
 
+    def test_workers_never_background_their_commands(self):
+        # A validator passed background: true on 10 test runs; each made it go idle and woke the orchestrator.
+        for name in ('implementer', 'validator'):
+            self.assertIn('never pass background: true', self.profile['agents'][name]['system'])
+        rules = install.RULES.read_text(encoding='utf-8')
+        self.assertIn('never pass `background: true`', rules)
+
     def test_cleanup_keeps_briefs_and_reports(self):
         # A cleanup kept only logs and deleted the briefs, progress.md and the validation report.
         rules = install.RULES.read_text(encoding='utf-8')
