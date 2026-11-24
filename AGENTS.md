@@ -11,8 +11,8 @@ A cloud model decides and a local model does the work, in native OpenCode 2: no 
   test and the docs, runs the checks and commits locally; the `validator` re-runs the checks, proves
   the test fails when the change is reverted and checks every changed sentence in the docs.
 
-Workers run one at a time (they share one model and its prompt cache) and pass results as brief and
-report files.
+Workers run one at a time, except that two independent tasks may run at once when at most one of them
+builds or uses a simulator; they pass results as brief and report files.
 
 ## The profile (`config/`)
 
@@ -43,6 +43,10 @@ Facts the profile depends on (checked on OpenCode 2.3.2 and Splash 1.7.0):
 - OpenCode loads global skills from `skills/<name>/SKILL.md` in its configuration directory.
 - Splash's prompt cache keeps a worker step at 5–8 s and about 80 tokens/s from 50k to 220k tokens of
   context, so long sessions cost steps and rework, not per-step speed.
+- With Splash's concurrency limit at 4, parallel requests raised combined output from about 110 to 180
+  (two) and 270 tokens/s (four), and three 54k-token sessions kept their prompt caches. A cold context
+  is still read one at a time (about 24 s per 54k tokens), and two simulator test runs at once killed
+  each other, so only one of two parallel workers may build.
 
 ## Install on a Mac
 
