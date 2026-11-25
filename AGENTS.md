@@ -104,6 +104,13 @@ What moved the numbers:
   and reports.
 - A worker once printed a broken tool call as its final text and stopped with nothing committed;
   the orchestrator now resumes any reply without a status line once before investigating.
+- A native tvOS search-suggestions change (18 files, about 1,000 lines) took 114 min, 52 of them in
+  tests: the full suite ran in both the implementer and the validator, every filtered run rebuilt,
+  one implementer spent 33 UI runs (20 min) probing how a system control appears to UI tests, the
+  validator built the base twice to prove an old failure, and one hung filtered run cost 10 min.
+  Hence one owner per test level (the full suite only in the validator), build once then test
+  without building, the orchestrator settling UI queries and known base failures while it
+  investigates, test timeouts, and a stop after two identical UI failures.
 - oMLX was about 30% slower per token than Splash here, and its memory guard rejected long prompts
   while Xcode was building, so Splash stays.
 
